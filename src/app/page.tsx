@@ -1,6 +1,7 @@
 'use client'
 
 import Image from 'next/image'
+import Link from 'next/link'
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { adicionarMeses, diferencaDias, moedaInputParaNumero } from '@/lib/utils'
@@ -708,6 +709,12 @@ export default function HomePage() {
                 >
                   Consulta de clientes
                 </button>
+                <Link
+  href="/relatorios"
+  className="px-4 py-2 rounded-xl font-medium bg-gray-100 text-gray-700 hover:bg-gray-200"
+>
+  Relatórios
+</Link>
               </div>
             </div>
 
