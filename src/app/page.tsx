@@ -126,7 +126,7 @@ export default function HomePage() {
       return
     }
 
-    setParcelas((data as Parcela[]) || [])
+    setParcelas((data ?? []) as Parcela[])
   }
 
   async function fazerLogin(e: FormEvent) {

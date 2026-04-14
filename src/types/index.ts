@@ -26,5 +26,5 @@ export type Parcela = {
   status: string
   cliente?: {
     nome_completo: string
-  } | null
+  }[] | null
 }

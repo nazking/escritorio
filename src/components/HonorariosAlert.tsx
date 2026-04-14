@@ -24,7 +24,7 @@ export default function HonorariosAlert({
         {parcelasVencidas.map((parcela) => (
           <div key={parcela.id} className="border border-red-300 bg-red-50 rounded-xl p-4">
             <p className="font-semibold text-red-900">
-              {parcela.cliente?.nome_completo || 'Cliente'}
+              {parcela.cliente?.[0]?.nome_completo || 'Cliente'}
             </p>
             <p className="text-sm text-red-800">
               Parcela {parcela.numero_parcela} vencida em {formatarData(parcela.data_vencimento)}
@@ -44,7 +44,7 @@ export default function HonorariosAlert({
         {parcelasProximas.map((parcela) => (
           <div key={parcela.id} className="border border-yellow-300 bg-yellow-50 rounded-xl p-4">
             <p className="font-semibold text-yellow-900">
-              {parcela.cliente?.nome_completo || 'Cliente'}
+              {parcela.cliente?.[0]?.nome_completo || 'Cliente'}
             </p>
             <p className="text-sm text-yellow-800">
               Parcela {parcela.numero_parcela} vence em {formatarData(parcela.data_vencimento)}
