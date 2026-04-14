@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { adicionarMeses, diferencaDias, moedaInputParaNumero } from '@/lib/utils'
@@ -118,6 +119,7 @@ export default function HomePage() {
       const { data, error } = await supabase
         .from('clientes')
         .select('*')
+        .eq('user_id', userId)
         .order('created_at', { ascending: false })
 
       if (error) {
@@ -145,6 +147,7 @@ export default function HomePage() {
           status,
           cliente:clientes(nome_completo)
         `)
+        .eq('user_id', userId)
         .order('data_vencimento', { ascending: true })
 
       if (error) {
@@ -219,6 +222,7 @@ export default function HomePage() {
         data_pagamento: hoje,
       })
       .eq('id', parcelaId)
+      .eq('user_id', usuario.id)
 
     if (error) {
       setMensagem('Erro ao marcar parcela como paga: ' + error.message)
@@ -238,6 +242,7 @@ export default function HomePage() {
         deadline_finalizada: true,
       })
       .eq('id', clienteId)
+      .eq('user_id', usuario.id)
 
     if (error) {
       setMensagem('Erro ao finalizar deadline: ' + error.message)
@@ -257,6 +262,7 @@ export default function HomePage() {
         deadline_finalizada: false,
       })
       .eq('id', clienteId)
+      .eq('user_id', usuario.id)
 
     if (error) {
       setMensagem('Erro ao reabrir deadline: ' + error.message)
@@ -677,125 +683,180 @@ export default function HomePage() {
 
   if (usuario) {
     return (
-      <main className="min-h-screen bg-gray-100 p-6">
-        <div className="max-w-7xl mx-auto space-y-6">
-          <div className="bg-white rounded-2xl shadow-lg p-6 flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold">Sistema do Escritório</h1>
-              <p className="text-gray-600 mt-1">Usuário logado: {usuario.email}</p>
-            </div>
-
-            <button
-              type="button"
-              onClick={sair}
-              className="bg-black text-white px-4 py-2 rounded-lg hover:opacity-90"
-            >
-              Sair
-            </button>
-          </div>
-
-          <div className="bg-white rounded-2xl shadow-lg p-3">
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => setAbaAtiva('dashboard')}
-                className={`px-4 py-2 rounded-xl font-medium ${
-                  abaAtiva === 'dashboard'
-                    ? 'bg-black text-white'
-                    : 'bg-gray-100 text-gray-700'
-                }`}
-              >
-                Dashboard
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setAbaAtiva('cadastro')}
-                className={`px-4 py-2 rounded-xl font-medium ${
-                  abaAtiva === 'cadastro'
-                    ? 'bg-black text-white'
-                    : 'bg-gray-100 text-gray-700'
-                }`}
-              >
-                Cadastro de clientes
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setAbaAtiva('consulta')}
-                className={`px-4 py-2 rounded-xl font-medium ${
-                  abaAtiva === 'consulta'
-                    ? 'bg-black text-white'
-                    : 'bg-gray-100 text-gray-700'
-                }`}
-              >
-                Consulta de clientes
-              </button>
+      <main className="min-h-screen bg-[#f4f1ea] relative overflow-hidden">
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(212,175,55,0.06),transparent_55%)]" />
+          <div className="absolute inset-0 opacity-[0.06] flex items-center justify-center">
+            <div className="relative w-[900px] h-[900px]">
+              <Image
+                src="/logo.png"
+                alt="Logo do escritório"
+                fill
+                className="object-contain"
+                priority
+              />
             </div>
           </div>
+        </div>
 
-          {renderConteudoAba()}
+        <div className="relative z-10 p-6">
+          <div className="max-w-7xl mx-auto space-y-6">
+            <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg border border-[#d4af37]/20 p-6 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="relative w-14 h-14 hidden sm:block">
+                  <Image
+                    src="/logo.png"
+                    alt="Logo do escritório"
+                    fill
+                    className="object-contain"
+                    priority
+                  />
+                </div>
+
+                <div>
+                  <h1 className="text-3xl font-bold text-black">Sistema do Escritório</h1>
+                  <p className="text-gray-600 mt-1">Usuário logado: {usuario.email}</p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={sair}
+                className="bg-black text-white px-4 py-2 rounded-lg hover:opacity-90"
+              >
+                Sair
+              </button>
+            </div>
+
+            <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg border border-[#d4af37]/20 p-3">
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAbaAtiva('dashboard')}
+                  className={`px-4 py-2 rounded-xl font-medium ${
+                    abaAtiva === 'dashboard'
+                      ? 'bg-black text-white'
+                      : 'bg-gray-100 text-gray-700'
+                  }`}
+                >
+                  Dashboard
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setAbaAtiva('cadastro')}
+                  className={`px-4 py-2 rounded-xl font-medium ${
+                    abaAtiva === 'cadastro'
+                      ? 'bg-black text-white'
+                      : 'bg-gray-100 text-gray-700'
+                  }`}
+                >
+                  Cadastro de clientes
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setAbaAtiva('consulta')}
+                  className={`px-4 py-2 rounded-xl font-medium ${
+                    abaAtiva === 'consulta'
+                      ? 'bg-black text-white'
+                      : 'bg-gray-100 text-gray-700'
+                  }`}
+                >
+                  Consulta de clientes
+                </button>
+              </div>
+            </div>
+
+            {renderConteudoAba()}
+          </div>
         </div>
       </main>
     )
   }
 
   return (
-    <main className="min-h-screen bg-gray-100 flex items-center justify-center p-6">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8">
-        <h1 className="text-2xl font-bold text-center mb-2">
-          Sistema do Escritório
-        </h1>
-        <p className="text-sm text-gray-600 text-center mb-6">
-          Faça login para acessar seu painel
-        </p>
+    <main className="min-h-screen relative overflow-hidden bg-black">
+      <div className="absolute inset-0">
+        <Image
+          src="/logo.png"
+          alt="Logo do escritório"
+          fill
+          className="object-cover opacity-20"
+          priority
+        />
+        <div className="absolute inset-0 bg-black/70" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(212,175,55,0.18),transparent_55%)]" />
+      </div>
 
-        <form onSubmit={fazerLogin} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">E-mail</label>
-            <input
-              type="email"
-              placeholder="seuemail@exemplo.com"
-              className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-black"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
+      <div className="relative z-10 min-h-screen flex items-center justify-center p-6">
+        <div className="w-full max-w-md bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl border border-[#d4af37]/20 p-8">
+          <div className="flex justify-center mb-6">
+            <div className="relative w-56 h-56">
+              <Image
+                src="/logo.png"
+                alt="Logo do escritório"
+                fill
+                className="object-contain"
+                priority
+              />
+            </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-1">Senha</label>
-            <input
-              type="password"
-              placeholder="Digite sua senha"
-              className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-black"
-              value={senha}
-              onChange={(e) => setSenha(e.target.value)}
-              required
-            />
-          </div>
+          <h1 className="text-2xl font-bold text-center mb-2 text-black">
+            Sistema do Escritório
+          </h1>
+          <p className="text-sm text-gray-600 text-center mb-6">
+            Faça login para acessar seu painel
+          </p>
+
+          <form onSubmit={fazerLogin} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-1 text-black">E-mail</label>
+              <input
+                type="email"
+                placeholder="seuemail@exemplo.com"
+                className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-black"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1 text-black">Senha</label>
+              <input
+                type="password"
+                placeholder="Digite sua senha"
+                className="w-full border rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-black"
+                value={senha}
+                onChange={(e) => setSenha(e.target.value)}
+                required
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={carregando}
+              className="w-full bg-black text-white rounded-lg py-2 font-medium hover:opacity-90 transition"
+            >
+              {carregando ? 'Entrando...' : 'Entrar'}
+            </button>
+          </form>
 
           <button
-            type="submit"
+            type="button"
+            onClick={criarContaTeste}
             disabled={carregando}
-            className="w-full bg-black text-white rounded-lg py-2 font-medium hover:opacity-90 transition"
+            className="w-full mt-3 border border-black rounded-lg py-2 font-medium hover:bg-gray-50 transition"
           >
-            {carregando ? 'Entrando...' : 'Entrar'}
+            Criar conta
           </button>
-        </form>
 
-        <button
-          type="button"
-          onClick={criarContaTeste}
-          disabled={carregando}
-          className="w-full mt-3 border border-black rounded-lg py-2 font-medium hover:bg-gray-50 transition"
-        >
-          Criar conta
-        </button>
-
-        {mensagem && (
-          <p className="mt-4 text-sm text-center text-gray-700">{mensagem}</p>
-        )}
+          {mensagem && (
+            <p className="mt-4 text-sm text-center text-gray-700">{mensagem}</p>
+          )}
+        </div>
       </div>
     </main>
   )
