@@ -14,12 +14,21 @@ import FiltrosBusca from '@/components/FiltrosBusca'
 type AbaAtiva = 'dashboard' | 'cadastro' | 'consulta'
 
 function comTimeout<T>(promise: Promise<T>, ms = 15000): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error('Tempo limite excedido ao salvar.')), ms)
-    ),
-  ])
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error('Tempo limite excedido ao salvar.'))
+    }, ms)
+
+    promise
+      .then((resultado) => {
+        clearTimeout(timer)
+        resolve(resultado)
+      })
+      .catch((erro) => {
+        clearTimeout(timer)
+        reject(erro)
+      })
+  })
 }
 
 export default function HomePage() {
