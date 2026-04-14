@@ -86,6 +86,9 @@ export default function ClienteDetalhePage() {
   const [salvandoNota, setSalvandoNota] = useState(false)
   const [excluindoNotaId, setExcluindoNotaId] = useState<string | null>(null)
 
+  const [parcelaEditandoId, setParcelaEditandoId] = useState<string | null>(null)
+  const [novaDataVencimento, setNovaDataVencimento] = useState('')
+
   const [nomeCompleto, setNomeCompleto] = useState('')
   const [endereco, setEndereco] = useState('')
   const [bairro, setBairro] = useState('')
@@ -235,6 +238,45 @@ export default function ClienteDetalhePage() {
     }
 
     setMensagem('Pagamento desfeito com sucesso.')
+    await carregarTudo()
+    setSalvandoParcelaId(null)
+  }
+
+  function iniciarEdicaoVencimento(parcela: ParcelaCliente) {
+    setParcelaEditandoId(parcela.id)
+    setNovaDataVencimento(parcela.data_vencimento)
+  }
+
+  function cancelarEdicaoVencimento() {
+    setParcelaEditandoId(null)
+    setNovaDataVencimento('')
+  }
+
+  async function salvarNovoVencimento(parcelaId: string) {
+    if (!novaDataVencimento) {
+      setMensagem('Escolha uma nova data de vencimento.')
+      return
+    }
+
+    setSalvandoParcelaId(parcelaId)
+    setMensagem('')
+
+    const { error } = await supabase
+      .from('parcelas_honorarios')
+      .update({
+        data_vencimento: novaDataVencimento,
+      })
+      .eq('id', parcelaId)
+
+    if (error) {
+      setMensagem('Erro ao alterar vencimento: ' + error.message)
+      setSalvandoParcelaId(null)
+      return
+    }
+
+    setMensagem('Vencimento da parcela alterado com sucesso.')
+    setParcelaEditandoId(null)
+    setNovaDataVencimento('')
     await carregarTudo()
     setSalvandoParcelaId(null)
   }
@@ -501,6 +543,112 @@ export default function ClienteDetalhePage() {
     })
   }, [parcelas])
 
+  function renderCardParcela(parcela: ParcelaCliente, variante: 'paga' | 'a_vencer' | 'vencida') {
+    const estilos =
+      variante === 'paga'
+        ? {
+            box: 'border-green-300 bg-green-50',
+            title: 'text-green-900',
+            text: 'text-green-800',
+            button: 'bg-green-900',
+          }
+        : variante === 'a_vencer'
+        ? {
+            box: 'border-yellow-300 bg-yellow-50',
+            title: 'text-yellow-900',
+            text: 'text-yellow-800',
+            button: 'bg-yellow-700',
+          }
+        : {
+            box: 'border-red-300 bg-red-50',
+            title: 'text-red-900',
+            text: 'text-red-800',
+            button: 'bg-red-900',
+          }
+
+    return (
+      <div key={parcela.id} className={`border rounded-xl p-4 ${estilos.box}`}>
+        <p className={`font-semibold ${estilos.title}`}>
+          Parcela {parcela.numero_parcela}
+        </p>
+
+        <p className={`text-sm ${estilos.text}`}>
+          Vencimento: {formatarData(parcela.data_vencimento)}
+        </p>
+
+        {parcela.data_pagamento && (
+          <p className={`text-sm ${estilos.text}`}>
+            Pagamento: {formatarData(parcela.data_pagamento)}
+          </p>
+        )}
+
+        <p className={`text-sm ${estilos.text}`}>
+          Valor: {formatarMoeda(parcela.valor_parcela)}
+        </p>
+
+        {parcelaEditandoId === parcela.id ? (
+          <div className="mt-3 space-y-2">
+            <input
+              type="date"
+              value={novaDataVencimento}
+              onChange={(e) => setNovaDataVencimento(e.target.value)}
+              className="w-full border rounded-lg px-3 py-2 bg-white text-black"
+            />
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => salvarNovoVencimento(parcela.id)}
+                disabled={salvandoParcelaId === parcela.id}
+                className="bg-black text-white px-3 py-2 rounded-lg text-sm"
+              >
+                {salvandoParcelaId === parcela.id ? 'Salvando...' : 'Salvar nova data'}
+              </button>
+
+              <button
+                type="button"
+                onClick={cancelarEdicaoVencimento}
+                className="bg-gray-500 text-white px-3 py-2 rounded-lg text-sm"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {variante === 'paga' ? (
+              <button
+                type="button"
+                onClick={() => desfazerPagamento(parcela.id)}
+                disabled={salvandoParcelaId === parcela.id}
+                className={`${estilos.button} text-white px-3 py-2 rounded-lg text-sm`}
+              >
+                {salvandoParcelaId === parcela.id ? 'Salvando...' : 'Desfazer pagamento'}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => marcarComoPaga(parcela.id)}
+                disabled={salvandoParcelaId === parcela.id}
+                className={`${estilos.button} text-white px-3 py-2 rounded-lg text-sm`}
+              >
+                {salvandoParcelaId === parcela.id ? 'Salvando...' : 'Marcar como paga'}
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => iniciarEdicaoVencimento(parcela)}
+              className="bg-black text-white px-3 py-2 rounded-lg text-sm"
+            >
+              Alterar vencimento
+            </button>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   function renderAbaConteudo() {
     if (abaAtiva === 'dados') {
       return (
@@ -752,31 +900,7 @@ export default function ClienteDetalhePage() {
                   <p className="text-gray-500">Nenhuma parcela paga.</p>
                 )}
 
-                {parcelasPagas.map((parcela) => (
-                  <div key={parcela.id} className="border border-green-300 bg-green-50 rounded-xl p-4">
-                    <p className="font-semibold text-green-900">
-                      Parcela {parcela.numero_parcela}
-                    </p>
-                    <p className="text-sm text-green-800">
-                      Vencimento: {formatarData(parcela.data_vencimento)}
-                    </p>
-                    <p className="text-sm text-green-800">
-                      Pagamento: {formatarData(parcela.data_pagamento)}
-                    </p>
-                    <p className="text-sm text-green-800">
-                      Valor: {formatarMoeda(parcela.valor_parcela)}
-                    </p>
-
-                    <button
-                      type="button"
-                      onClick={() => desfazerPagamento(parcela.id)}
-                      disabled={salvandoParcelaId === parcela.id}
-                      className="mt-3 bg-green-900 text-white px-3 py-2 rounded-lg text-sm"
-                    >
-                      {salvandoParcelaId === parcela.id ? 'Salvando...' : 'Desfazer pagamento'}
-                    </button>
-                  </div>
-                ))}
+                {parcelasPagas.map((parcela) => renderCardParcela(parcela, 'paga'))}
               </div>
             </div>
 
@@ -788,28 +912,7 @@ export default function ClienteDetalhePage() {
                   <p className="text-gray-500">Nenhuma parcela a vencer.</p>
                 )}
 
-                {parcelasPendentes.map((parcela) => (
-                  <div key={parcela.id} className="border border-yellow-300 bg-yellow-50 rounded-xl p-4">
-                    <p className="font-semibold text-yellow-900">
-                      Parcela {parcela.numero_parcela}
-                    </p>
-                    <p className="text-sm text-yellow-800">
-                      Vencimento: {formatarData(parcela.data_vencimento)}
-                    </p>
-                    <p className="text-sm text-yellow-800">
-                      Valor: {formatarMoeda(parcela.valor_parcela)}
-                    </p>
-
-                    <button
-                      type="button"
-                      onClick={() => marcarComoPaga(parcela.id)}
-                      disabled={salvandoParcelaId === parcela.id}
-                      className="mt-3 bg-yellow-700 text-white px-3 py-2 rounded-lg text-sm"
-                    >
-                      {salvandoParcelaId === parcela.id ? 'Salvando...' : 'Marcar como paga'}
-                    </button>
-                  </div>
-                ))}
+                {parcelasPendentes.map((parcela) => renderCardParcela(parcela, 'a_vencer'))}
               </div>
             </div>
 
@@ -821,28 +924,7 @@ export default function ClienteDetalhePage() {
                   <p className="text-gray-500">Nenhuma parcela vencida.</p>
                 )}
 
-                {parcelasVencidas.map((parcela) => (
-                  <div key={parcela.id} className="border border-red-300 bg-red-50 rounded-xl p-4">
-                    <p className="font-semibold text-red-900">
-                      Parcela {parcela.numero_parcela}
-                    </p>
-                    <p className="text-sm text-red-800">
-                      Vencimento: {formatarData(parcela.data_vencimento)}
-                    </p>
-                    <p className="text-sm text-red-800">
-                      Valor: {formatarMoeda(parcela.valor_parcela)}
-                    </p>
-
-                    <button
-                      type="button"
-                      onClick={() => marcarComoPaga(parcela.id)}
-                      disabled={salvandoParcelaId === parcela.id}
-                      className="mt-3 bg-red-900 text-white px-3 py-2 rounded-lg text-sm"
-                    >
-                      {salvandoParcelaId === parcela.id ? 'Salvando...' : 'Marcar como paga'}
-                    </button>
-                  </div>
-                ))}
+                {parcelasVencidas.map((parcela) => renderCardParcela(parcela, 'vencida'))}
               </div>
             </div>
           </div>

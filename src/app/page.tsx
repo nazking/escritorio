@@ -40,6 +40,7 @@ export default function HomePage() {
   const [temHonorarios, setTemHonorarios] = useState(false)
 
   const [valorHonorarios, setValorHonorarios] = useState('')
+  const [primeiroVencimentoHonorarios, setPrimeiroVencimentoHonorarios] = useState('')
   const [honorariosParcelados, setHonorariosParcelados] = useState(false)
   const [quantidadeParcelas, setQuantidadeParcelas] = useState('')
 
@@ -272,6 +273,11 @@ export default function HomePage() {
           return
         }
 
+        if (!primeiroVencimentoHonorarios) {
+          setMensagem('Informe a data de vencimento da 1ª parcela.')
+          return
+        }
+
         if (!qtdParcelas || qtdParcelas <= 0) {
           setMensagem('Informe uma quantidade válida de parcelas.')
           return
@@ -300,7 +306,7 @@ export default function HomePage() {
           return
         }
 
-        const baseVencimento = dataAcao || new Date().toISOString().slice(0, 10)
+        const baseVencimento = primeiroVencimentoHonorarios
         const valorParcela = totalHonorarios / qtdParcelas
 
         const parcelasGeradas = Array.from({ length: qtdParcelas }).map((_, index) => ({
@@ -344,6 +350,7 @@ export default function HomePage() {
       setValorCausa('')
       setTemHonorarios(false)
       setValorHonorarios('')
+      setPrimeiroVencimentoHonorarios('')
       setHonorariosParcelados(false)
       setQuantidadeParcelas('')
 
@@ -560,6 +567,8 @@ export default function HomePage() {
           setTemHonorarios={setTemHonorarios}
           valorHonorarios={valorHonorarios}
           setValorHonorarios={setValorHonorarios}
+          primeiroVencimentoHonorarios={primeiroVencimentoHonorarios}
+          setPrimeiroVencimentoHonorarios={setPrimeiroVencimentoHonorarios}
           honorariosParcelados={honorariosParcelados}
           setHonorariosParcelados={setHonorariosParcelados}
           quantidadeParcelas={quantidadeParcelas}

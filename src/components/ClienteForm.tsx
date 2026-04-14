@@ -46,6 +46,9 @@ type Props = {
   valorHonorarios: string
   setValorHonorarios: (valor: string) => void
 
+  primeiroVencimentoHonorarios: string
+  setPrimeiroVencimentoHonorarios: (valor: string) => void
+
   honorariosParcelados: boolean
   setHonorariosParcelados: (valor: boolean) => void
 
@@ -86,6 +89,8 @@ export default function ClienteForm({
   setTemHonorarios,
   valorHonorarios,
   setValorHonorarios,
+  primeiroVencimentoHonorarios,
+  setPrimeiroVencimentoHonorarios,
   honorariosParcelados,
   setHonorariosParcelados,
   quantidadeParcelas,
@@ -232,6 +237,7 @@ export default function ClienteForm({
               setTemHonorarios(e.target.checked)
               if (!e.target.checked) {
                 setValorHonorarios('')
+                setPrimeiroVencimentoHonorarios('')
                 setHonorariosParcelados(false)
                 setQuantidadeParcelas('')
               }
@@ -252,6 +258,19 @@ export default function ClienteForm({
                 onChange={(e) => setValorHonorarios(formatarMoedaInput(e.target.value))}
                 className="w-full border rounded-lg px-3 py-2"
                 placeholder="R$ 0,00"
+                required={temHonorarios}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Data de vencimento da 1ª parcela
+              </label>
+              <input
+                type="date"
+                value={primeiroVencimentoHonorarios}
+                onChange={(e) => setPrimeiroVencimentoHonorarios(e.target.value)}
+                className="w-full border rounded-lg px-3 py-2"
                 required={temHonorarios}
               />
             </div>
