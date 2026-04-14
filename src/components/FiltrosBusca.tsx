@@ -1,19 +1,14 @@
 type Props = {
   buscaNome: string
   setBuscaNome: (valor: string) => void
-
   filtroDeadline: string
   setFiltroDeadline: (valor: string) => void
-
   filtroHonorarios: string
   setFiltroHonorarios: (valor: string) => void
-
   dataInicial: string
   setDataInicial: (valor: string) => void
-
   dataFinal: string
   setDataFinal: (valor: string) => void
-
   onLimparFiltros: () => void
 }
 
@@ -31,17 +26,8 @@ export default function FiltrosBusca({
   onLimparFiltros,
 }: Props) {
   return (
-    <div className="bg-white rounded-2xl shadow-lg p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-2xl font-bold">Busca e filtros</h2>
-        <button
-          type="button"
-          onClick={onLimparFiltros}
-          className="border border-gray-300 px-4 py-2 rounded-lg text-sm hover:bg-gray-50"
-        >
-          Limpar filtros
-        </button>
-      </div>
+    <div className="bg-white rounded-2xl shadow-lg p-6 space-y-4">
+      <h2 className="text-2xl font-bold">Consulta de clientes</h2>
 
       <div className="grid md:grid-cols-2 xl:grid-cols-5 gap-4">
         <div>
@@ -50,23 +36,23 @@ export default function FiltrosBusca({
             type="text"
             value={buscaNome}
             onChange={(e) => setBuscaNome(e.target.value)}
-            placeholder="Buscar por nome"
             className="w-full border rounded-lg px-3 py-2"
+            placeholder="Buscar por nome"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium mb-1">Deadline</label>
+          <label className="block text-sm font-medium mb-1">Prazo da ação</label>
           <select
             value={filtroDeadline}
             onChange={(e) => setFiltroDeadline(e.target.value)}
             className="w-full border rounded-lg px-3 py-2"
           >
-            <option value="">Todas</option>
-            <option value="vencida">Vencida</option>
-            <option value="proxima">Próxima</option>
-            <option value="finalizada">Finalizada</option>
-            <option value="sem_deadline">Sem deadline</option>
+            <option value="">Todos</option>
+            <option value="vencida">Prazo da ação vencido</option>
+            <option value="proxima">Prazo da ação próximo</option>
+            <option value="finalizada">Prazo da ação finalizado</option>
+            <option value="sem_deadline">Sem prazo da ação</option>
           </select>
         </div>
 
@@ -78,9 +64,9 @@ export default function FiltrosBusca({
             className="w-full border rounded-lg px-3 py-2"
           >
             <option value="">Todos</option>
-            <option value="vencido">Vencido</option>
-            <option value="proximo">Próximo</option>
-            <option value="pago">Pago</option>
+            <option value="vencido">Honorários vencidos</option>
+            <option value="proximo">Honorários próximos</option>
+            <option value="pago">Honorários pagos</option>
             <option value="sem_honorarios">Sem honorários</option>
           </select>
         </div>
@@ -104,6 +90,16 @@ export default function FiltrosBusca({
             className="w-full border rounded-lg px-3 py-2"
           />
         </div>
+      </div>
+
+      <div>
+        <button
+          type="button"
+          onClick={onLimparFiltros}
+          className="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg"
+        >
+          Limpar filtros
+        </button>
       </div>
     </div>
   )

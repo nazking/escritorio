@@ -208,7 +208,7 @@ export default function ClienteForm({
         </div>
 
         <div>
-          <label className="block text-sm font-medium mb-1">Deadline</label>
+          <label className="block text-sm font-medium mb-1">Prazo da ação</label>
           <input
             type="date"
             value={deadline}
@@ -317,9 +317,7 @@ export default function ClienteForm({
         </button>
       </form>
 
-      {mensagem && (
-        <p className="mt-4 text-sm text-gray-700">{mensagem}</p>
-      )}
+      {mensagem && <p className="mt-4 text-sm text-gray-700">{mensagem}</p>}
     </div>
   )
 }

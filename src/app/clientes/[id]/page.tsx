@@ -36,9 +36,10 @@ type NotaCliente = {
   id: string
   conteudo: string
   created_at: string
+  tipo: string
 }
 
-type AbaCliente = 'dados' | 'honorarios' | 'arquivos'
+type AbaCliente = 'dados' | 'processo' | 'honorarios' | 'arquivos'
 
 function limparNomeArquivo(nome: string) {
   const partes = nome.split('.')
@@ -79,15 +80,20 @@ export default function ClienteDetalhePage() {
   const [mensagem, setMensagem] = useState('')
   const [salvandoParcelaId, setSalvandoParcelaId] = useState<string | null>(null)
   const [salvandoEdicao, setSalvandoEdicao] = useState(false)
+  const [salvandoProcesso, setSalvandoProcesso] = useState(false)
   const [enviandoArquivo, setEnviandoArquivo] = useState(false)
   const [excluindoArquivoId, setExcluindoArquivoId] = useState<string | null>(null)
   const [excluindoCliente, setExcluindoCliente] = useState(false)
   const [novaNota, setNovaNota] = useState('')
+  const [novaAtualizacaoProcesso, setNovaAtualizacaoProcesso] = useState('')
   const [salvandoNota, setSalvandoNota] = useState(false)
+  const [salvandoAtualizacaoProcesso, setSalvandoAtualizacaoProcesso] = useState(false)
   const [excluindoNotaId, setExcluindoNotaId] = useState<string | null>(null)
 
   const [parcelaEditandoId, setParcelaEditandoId] = useState<string | null>(null)
   const [novaDataVencimento, setNovaDataVencimento] = useState('')
+  const [comentarioParcelaId, setComentarioParcelaId] = useState<string | null>(null)
+  const [comentarioParcela, setComentarioParcela] = useState('')
 
   const [nomeCompleto, setNomeCompleto] = useState('')
   const [endereco, setEndereco] = useState('')
@@ -99,10 +105,14 @@ export default function ClienteDetalhePage() {
   const [dataNascimento, setDataNascimento] = useState('')
   const [descricaoCaso, setDescricaoCaso] = useState('')
   const [dataAcao, setDataAcao] = useState('')
-  const [deadline, setDeadline] = useState('')
+  const [prazoAcao, setPrazoAcao] = useState('')
   const [valorCausa, setValorCausa] = useState('')
   const [temHonorarios, setTemHonorarios] = useState(false)
-  const [deadlineFinalizada, setDeadlineFinalizada] = useState(false)
+  const [prazoAcaoFinalizado, setPrazoAcaoFinalizado] = useState(false)
+
+  const [numeroProcesso, setNumeroProcesso] = useState('')
+  const [comarcaProcesso, setComarcaProcesso] = useState('')
+  const [dataDistribuicao, setDataDistribuicao] = useState('')
 
   useEffect(() => {
     carregarTudo()
@@ -118,24 +128,17 @@ export default function ClienteDetalhePage() {
       { data: arquivosData, error: arquivosError },
       { data: notasData, error: notasError },
     ] = await Promise.all([
-      supabase
-        .from('clientes')
-        .select('*')
-        .eq('id', clienteId)
-        .single(),
-
+      supabase.from('clientes').select('*').eq('id', clienteId).single(),
       supabase
         .from('parcelas_honorarios')
         .select('*')
         .eq('cliente_id', clienteId)
         .order('numero_parcela', { ascending: true }),
-
       supabase
         .from('arquivos_cliente')
         .select('*')
         .eq('cliente_id', clienteId)
         .order('created_at', { ascending: false }),
-
       supabase
         .from('notas_cliente')
         .select('*')
@@ -182,14 +185,18 @@ export default function ClienteDetalhePage() {
     setDataNascimento(clienteData.data_nascimento || '')
     setDescricaoCaso(clienteData.descricao_caso || '')
     setDataAcao(clienteData.data_acao || '')
-    setDeadline(clienteData.deadline || '')
+    setPrazoAcao(clienteData.deadline || '')
     setValorCausa(
       clienteData.valor_causa != null
         ? formatarMoedaInput(String(clienteData.valor_causa).replace('.', ','))
         : ''
     )
     setTemHonorarios(clienteData.tem_honorarios || false)
-    setDeadlineFinalizada(clienteData.deadline_finalizada || false)
+    setPrazoAcaoFinalizado(clienteData.deadline_finalizada || false)
+
+    setNumeroProcesso(clienteData.numero_processo || '')
+    setComarcaProcesso(clienteData.comarca_processo || '')
+    setDataDistribuicao(clienteData.data_distribuicao || '')
 
     setCarregando(false)
   }
@@ -281,6 +288,40 @@ export default function ClienteDetalhePage() {
     setSalvandoParcelaId(null)
   }
 
+  function iniciarComentarioParcela(parcela: ParcelaCliente) {
+    setComentarioParcelaId(parcela.id)
+    setComentarioParcela(parcela.observacoes || '')
+  }
+
+  function cancelarComentarioParcela() {
+    setComentarioParcelaId(null)
+    setComentarioParcela('')
+  }
+
+  async function salvarComentarioParcela(parcelaId: string) {
+    setSalvandoParcelaId(parcelaId)
+    setMensagem('')
+
+    const { error } = await supabase
+      .from('parcelas_honorarios')
+      .update({
+        observacoes: comentarioParcela || null,
+      })
+      .eq('id', parcelaId)
+
+    if (error) {
+      setMensagem('Erro ao salvar comentário da parcela: ' + error.message)
+      setSalvandoParcelaId(null)
+      return
+    }
+
+    setMensagem('Comentário da parcela salvo com sucesso.')
+    setComentarioParcelaId(null)
+    setComentarioParcela('')
+    await carregarTudo()
+    setSalvandoParcelaId(null)
+  }
+
   async function salvarEdicao(e: FormEvent) {
     e.preventDefault()
 
@@ -300,10 +341,10 @@ export default function ClienteDetalhePage() {
         data_nascimento: dataNascimento || null,
         descricao_caso: descricaoCaso || null,
         data_acao: dataAcao || null,
-        deadline: deadline || null,
+        deadline: prazoAcao || null,
         valor_causa: valorCausa ? moedaInputParaNumero(valorCausa) : 0,
         tem_honorarios: temHonorarios,
-        deadline_finalizada: deadlineFinalizada,
+        deadline_finalizada: prazoAcaoFinalizado,
       })
       .eq('id', clienteId)
       .select()
@@ -321,56 +362,92 @@ export default function ClienteDetalhePage() {
     await carregarTudo()
   }
 
-  async function adicionarNota() {
-    if (!novaNota.trim()) {
-      setMensagem('Digite uma nota antes de salvar.')
+  async function salvarProcesso(e: FormEvent) {
+    e.preventDefault()
+
+    setSalvandoProcesso(true)
+    setMensagem('')
+
+    const { error } = await supabase
+      .from('clientes')
+      .update({
+        numero_processo: numeroProcesso || null,
+        comarca_processo: comarcaProcesso || null,
+        data_distribuicao: dataDistribuicao || null,
+      })
+      .eq('id', clienteId)
+
+    if (error) {
+      setMensagem('Erro ao salvar dados do processo: ' + error.message)
+      setSalvandoProcesso(false)
       return
     }
 
-    setSalvandoNota(true)
+    setMensagem('Dados do processo atualizados com sucesso.')
+    setSalvandoProcesso(false)
+    await carregarTudo()
+  }
+
+  async function adicionarNota(tipo: 'geral' | 'processo') {
+    const conteudo = tipo === 'geral' ? novaNota.trim() : novaAtualizacaoProcesso.trim()
+
+    if (!conteudo) {
+      setMensagem('Digite uma atualização antes de salvar.')
+      return
+    }
+
+    if (tipo === 'geral') {
+      setSalvandoNota(true)
+    } else {
+      setSalvandoAtualizacaoProcesso(true)
+    }
+
     setMensagem('')
 
     const { data: authData } = await supabase.auth.getUser()
 
-    const { error } = await supabase
-      .from('notas_cliente')
-      .insert({
-        cliente_id: clienteId,
-        user_id: authData.user?.id || null,
-        conteudo: novaNota.trim(),
-      })
+    const { error } = await supabase.from('notas_cliente').insert({
+      cliente_id: clienteId,
+      user_id: authData.user?.id || null,
+      conteudo,
+      tipo,
+    })
 
     if (error) {
-      setMensagem('Erro ao adicionar nota: ' + error.message)
+      setMensagem('Erro ao adicionar atualização: ' + error.message)
       setSalvandoNota(false)
+      setSalvandoAtualizacaoProcesso(false)
       return
     }
 
-    setNovaNota('')
-    setMensagem('Nota adicionada com sucesso.')
+    if (tipo === 'geral') {
+      setNovaNota('')
+    } else {
+      setNovaAtualizacaoProcesso('')
+    }
+
+    setMensagem('Atualização adicionada com sucesso.')
     setSalvandoNota(false)
+    setSalvandoAtualizacaoProcesso(false)
     await carregarTudo()
   }
 
   async function excluirNota(notaId: string) {
-    const confirmar = window.confirm('Deseja excluir esta nota?')
+    const confirmar = window.confirm('Deseja excluir esta atualização?')
     if (!confirmar) return
 
     setExcluindoNotaId(notaId)
     setMensagem('')
 
-    const { error } = await supabase
-      .from('notas_cliente')
-      .delete()
-      .eq('id', notaId)
+    const { error } = await supabase.from('notas_cliente').delete().eq('id', notaId)
 
     if (error) {
-      setMensagem('Erro ao excluir nota: ' + error.message)
+      setMensagem('Erro ao excluir atualização: ' + error.message)
       setExcluindoNotaId(null)
       return
     }
 
-    setMensagem('Nota excluída com sucesso.')
+    setMensagem('Atualização excluída com sucesso.')
     setExcluindoNotaId(null)
     await carregarTudo()
   }
@@ -407,16 +484,14 @@ export default function ClienteDetalhePage() {
       return
     }
 
-    const { error: bancoError } = await supabase
-      .from('arquivos_cliente')
-      .insert({
-        user_id: userId,
-        cliente_id: clienteId,
-        nome_arquivo: arquivo.name,
-        caminho_arquivo: caminhoArquivo,
-        tipo_arquivo: arquivo.type || null,
-        tamanho_bytes: arquivo.size,
-      })
+    const { error: bancoError } = await supabase.from('arquivos_cliente').insert({
+      user_id: userId,
+      cliente_id: clienteId,
+      nome_arquivo: arquivo.name,
+      caminho_arquivo: caminhoArquivo,
+      tipo_arquivo: arquivo.type || null,
+      tamanho_bytes: arquivo.size,
+    })
 
     if (bancoError) {
       setMensagem('Arquivo enviado, mas houve erro ao registrar no banco: ' + bancoError.message)
@@ -527,6 +602,9 @@ export default function ClienteDetalhePage() {
     }
   }
 
+  const notasGerais = useMemo(() => notas.filter((n) => n.tipo === 'geral'), [notas])
+  const notasProcesso = useMemo(() => notas.filter((n) => n.tipo === 'processo'), [notas])
+
   const parcelasPagas = useMemo(() => {
     return parcelas.filter((parcela) => parcela.status === 'pago')
   }, [parcelas])
@@ -542,6 +620,34 @@ export default function ClienteDetalhePage() {
       return parcela.status !== 'pago' && diferencaDias(parcela.data_vencimento) < 0
     })
   }, [parcelas])
+
+  function renderAtualizacoes(lista: NotaCliente[]) {
+    return (
+      <div className="pt-2 space-y-3">
+        {lista.length === 0 && <p className="text-gray-500">Nenhuma atualização cadastrada ainda.</p>}
+
+        {lista.map((nota) => (
+          <div key={nota.id} className="border rounded-xl p-4 bg-gray-50">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm text-gray-500 mb-2">{formatarDataHora(nota.created_at)}</p>
+                <p className="whitespace-pre-wrap text-gray-800">{nota.conteudo}</p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => excluirNota(nota.id)}
+                disabled={excluindoNotaId === nota.id}
+                className="bg-red-600 text-white px-3 py-2 rounded-lg text-sm"
+              >
+                {excluindoNotaId === nota.id ? 'Excluindo...' : 'Excluir'}
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  }
 
   function renderCardParcela(parcela: ParcelaCliente, variante: 'paga' | 'a_vencer' | 'vencida') {
     const estilos =
@@ -568,23 +674,21 @@ export default function ClienteDetalhePage() {
 
     return (
       <div key={parcela.id} className={`border rounded-xl p-4 ${estilos.box}`}>
-        <p className={`font-semibold ${estilos.title}`}>
-          Parcela {parcela.numero_parcela}
-        </p>
+        <p className={`font-semibold ${estilos.title}`}>Parcela {parcela.numero_parcela}</p>
 
-        <p className={`text-sm ${estilos.text}`}>
-          Vencimento: {formatarData(parcela.data_vencimento)}
-        </p>
+        <p className={`text-sm ${estilos.text}`}>Vencimento: {formatarData(parcela.data_vencimento)}</p>
 
         {parcela.data_pagamento && (
-          <p className={`text-sm ${estilos.text}`}>
-            Pagamento: {formatarData(parcela.data_pagamento)}
-          </p>
+          <p className={`text-sm ${estilos.text}`}>Pagamento: {formatarData(parcela.data_pagamento)}</p>
         )}
 
-        <p className={`text-sm ${estilos.text}`}>
-          Valor: {formatarMoeda(parcela.valor_parcela)}
-        </p>
+        <p className={`text-sm ${estilos.text}`}>Valor: {formatarMoeda(parcela.valor_parcela)}</p>
+
+        {parcela.observacoes && (
+          <p className={`text-sm ${estilos.text} mt-2`}>
+            <span className="font-semibold">Comentário:</span> {parcela.observacoes}
+          </p>
+        )}
 
         {parcelaEditandoId === parcela.id ? (
           <div className="mt-3 space-y-2">
@@ -608,6 +712,34 @@ export default function ClienteDetalhePage() {
               <button
                 type="button"
                 onClick={cancelarEdicaoVencimento}
+                className="bg-gray-500 text-white px-3 py-2 rounded-lg text-sm"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        ) : comentarioParcelaId === parcela.id ? (
+          <div className="mt-3 space-y-2">
+            <textarea
+              value={comentarioParcela}
+              onChange={(e) => setComentarioParcela(e.target.value)}
+              className="w-full border rounded-lg px-3 py-2 bg-white text-black min-h-[90px]"
+              placeholder="Digite aqui a negociação ou observação desta parcela..."
+            />
+
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => salvarComentarioParcela(parcela.id)}
+                disabled={salvandoParcelaId === parcela.id}
+                className="bg-black text-white px-3 py-2 rounded-lg text-sm"
+              >
+                {salvandoParcelaId === parcela.id ? 'Salvando...' : 'Salvar comentário'}
+              </button>
+
+              <button
+                type="button"
+                onClick={cancelarComentarioParcela}
                 className="bg-gray-500 text-white px-3 py-2 rounded-lg text-sm"
               >
                 Cancelar
@@ -642,6 +774,14 @@ export default function ClienteDetalhePage() {
               className="bg-black text-white px-3 py-2 rounded-lg text-sm"
             >
               Alterar vencimento
+            </button>
+
+            <button
+              type="button"
+              onClick={() => iniciarComentarioParcela(parcela)}
+              className="bg-gray-700 text-white px-3 py-2 rounded-lg text-sm"
+            >
+              Comentário
             </button>
           </div>
         )}
@@ -753,11 +893,11 @@ export default function ClienteDetalhePage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium mb-1">Deadline</label>
+                  <label className="block text-sm font-medium mb-1">Prazo da ação</label>
                   <input
                     type="date"
-                    value={deadline}
-                    onChange={(e) => setDeadline(e.target.value)}
+                    value={prazoAcao}
+                    onChange={(e) => setPrazoAcao(e.target.value)}
                     className="w-full border rounded-lg px-3 py-2"
                   />
                 </div>
@@ -786,10 +926,10 @@ export default function ClienteDetalhePage() {
                   <label className="flex items-center gap-2">
                     <input
                       type="checkbox"
-                      checked={deadlineFinalizada}
-                      onChange={(e) => setDeadlineFinalizada(e.target.checked)}
+                      checked={prazoAcaoFinalizado}
+                      onChange={(e) => setPrazoAcaoFinalizado(e.target.checked)}
                     />
-                    <span className="text-sm font-medium">Deadline finalizada?</span>
+                    <span className="text-sm font-medium">Prazo da ação finalizado?</span>
                   </label>
                 </div>
               </div>
@@ -814,57 +954,108 @@ export default function ClienteDetalhePage() {
           </div>
 
           <div className="bg-white rounded-2xl shadow-lg p-6">
-            <h2 className="text-2xl font-bold mb-4">Notas e atualizações</h2>
+            <h2 className="text-2xl font-bold mb-4">Atualizações gerais</h2>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Nova nota</label>
+                <label className="block text-sm font-medium mb-1">Nova atualização</label>
                 <textarea
                   value={novaNota}
                   onChange={(e) => setNovaNota(e.target.value)}
                   className="w-full border rounded-lg px-3 py-2 min-h-[110px]"
-                  placeholder="Escreva aqui uma atualização, observação ou andamento do cliente..."
+                  placeholder="Escreva aqui uma atualização geral do cliente..."
                 />
               </div>
 
               <button
                 type="button"
-                onClick={adicionarNota}
+                onClick={() => adicionarNota('geral')}
                 disabled={salvandoNota}
                 className="bg-black text-white px-4 py-2 rounded-lg"
               >
-                {salvandoNota ? 'Salvando nota...' : 'Adicionar nota'}
+                {salvandoNota ? 'Salvando...' : 'Adicionar atualização'}
               </button>
 
-              <div className="pt-2 space-y-3">
-                {notas.length === 0 && (
-                  <p className="text-gray-500">Nenhuma nota cadastrada ainda.</p>
-                )}
+              {renderAtualizacoes(notasGerais)}
+            </div>
+          </div>
+        </div>
+      )
+    }
 
-                {notas.map((nota) => (
-                  <div key={nota.id} className="border rounded-xl p-4 bg-gray-50">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="text-sm text-gray-500 mb-2">
-                          {formatarDataHora(nota.created_at)}
-                        </p>
-                        <p className="whitespace-pre-wrap text-gray-800">
-                          {nota.conteudo}
-                        </p>
-                      </div>
+    if (abaAtiva === 'processo') {
+      return (
+        <div className="space-y-6">
+          <div className="bg-white rounded-2xl shadow-lg p-6">
+            <h2 className="text-2xl font-bold mb-4">Dados do processo</h2>
 
-                      <button
-                        type="button"
-                        onClick={() => excluirNota(nota.id)}
-                        disabled={excluindoNotaId === nota.id}
-                        className="bg-red-600 text-white px-3 py-2 rounded-lg text-sm"
-                      >
-                        {excluindoNotaId === nota.id ? 'Excluindo...' : 'Excluir'}
-                      </button>
-                    </div>
-                  </div>
-                ))}
+            <form onSubmit={salvarProcesso} className="space-y-4">
+              <div className="grid md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Número do processo</label>
+                  <input
+                    type="text"
+                    value={numeroProcesso}
+                    onChange={(e) => setNumeroProcesso(e.target.value)}
+                    className="w-full border rounded-lg px-3 py-2"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Comarca do processo</label>
+                  <input
+                    type="text"
+                    value={comarcaProcesso}
+                    onChange={(e) => setComarcaProcesso(e.target.value)}
+                    className="w-full border rounded-lg px-3 py-2"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Data de distribuição</label>
+                  <input
+                    type="date"
+                    value={dataDistribuicao}
+                    onChange={(e) => setDataDistribuicao(e.target.value)}
+                    className="w-full border rounded-lg px-3 py-2"
+                  />
+                </div>
               </div>
+
+              <button
+                type="submit"
+                disabled={salvandoProcesso}
+                className="bg-black text-white px-4 py-2 rounded-lg"
+              >
+                {salvandoProcesso ? 'Salvando...' : 'Salvar dados do processo'}
+              </button>
+            </form>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-lg p-6">
+            <h2 className="text-2xl font-bold mb-4">Atualizações do processo</h2>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Nova atualização do processo</label>
+                <textarea
+                  value={novaAtualizacaoProcesso}
+                  onChange={(e) => setNovaAtualizacaoProcesso(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2 min-h-[110px]"
+                  placeholder="Ex.: distribuído, audiência marcada, juntada realizada, decisão publicada..."
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={() => adicionarNota('processo')}
+                disabled={salvandoAtualizacaoProcesso}
+                className="bg-black text-white px-4 py-2 rounded-lg"
+              >
+                {salvandoAtualizacaoProcesso ? 'Salvando...' : 'Adicionar atualização do processo'}
+              </button>
+
+              {renderAtualizacoes(notasProcesso)}
             </div>
           </div>
         </div>
@@ -894,36 +1085,24 @@ export default function ClienteDetalhePage() {
           <div className="grid lg:grid-cols-3 gap-6">
             <div className="bg-white rounded-2xl shadow-lg p-6">
               <h2 className="text-2xl font-bold mb-4">Pagas</h2>
-
               <div className="space-y-3 max-h-[420px] overflow-auto">
-                {parcelasPagas.length === 0 && (
-                  <p className="text-gray-500">Nenhuma parcela paga.</p>
-                )}
-
+                {parcelasPagas.length === 0 && <p className="text-gray-500">Nenhuma parcela paga.</p>}
                 {parcelasPagas.map((parcela) => renderCardParcela(parcela, 'paga'))}
               </div>
             </div>
 
             <div className="bg-white rounded-2xl shadow-lg p-6">
               <h2 className="text-2xl font-bold mb-4">A vencer</h2>
-
               <div className="space-y-3 max-h-[420px] overflow-auto">
-                {parcelasPendentes.length === 0 && (
-                  <p className="text-gray-500">Nenhuma parcela a vencer.</p>
-                )}
-
+                {parcelasPendentes.length === 0 && <p className="text-gray-500">Nenhuma parcela a vencer.</p>}
                 {parcelasPendentes.map((parcela) => renderCardParcela(parcela, 'a_vencer'))}
               </div>
             </div>
 
             <div className="bg-white rounded-2xl shadow-lg p-6">
               <h2 className="text-2xl font-bold mb-4">Vencidas</h2>
-
               <div className="space-y-3 max-h-[420px] overflow-auto">
-                {parcelasVencidas.length === 0 && (
-                  <p className="text-gray-500">Nenhuma parcela vencida.</p>
-                )}
-
+                {parcelasVencidas.length === 0 && <p className="text-gray-500">Nenhuma parcela vencida.</p>}
                 {parcelasVencidas.map((parcela) => renderCardParcela(parcela, 'vencida'))}
               </div>
             </div>
@@ -950,9 +1129,7 @@ export default function ClienteDetalhePage() {
         </div>
 
         <div className="space-y-3">
-          {arquivos.length === 0 && (
-            <p className="text-gray-500">Nenhum arquivo anexado ainda.</p>
-          )}
+          {arquivos.length === 0 && <p className="text-gray-500">Nenhum arquivo anexado ainda.</p>}
 
           {arquivos.map((arquivo) => (
             <div
@@ -1031,7 +1208,10 @@ export default function ClienteDetalhePage() {
         <div className="bg-white rounded-2xl shadow-lg p-6 flex items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold">Detalhes do Cliente</h1>
-            <p className="text-gray-600 mt-1">{cliente.nome_completo}</p>
+            <p className="text-gray-600 mt-1">
+              ID do cliente: <span className="font-semibold">{(cliente as any).public_id}</span>
+            </p>
+            <p className="text-gray-600">{cliente.nome_completo}</p>
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -1066,9 +1246,7 @@ export default function ClienteDetalhePage() {
               type="button"
               onClick={() => setAbaAtiva('dados')}
               className={`px-4 py-2 rounded-xl font-medium ${
-                abaAtiva === 'dados'
-                  ? 'bg-black text-white'
-                  : 'bg-gray-100 text-gray-700'
+                abaAtiva === 'dados' ? 'bg-black text-white' : 'bg-gray-100 text-gray-700'
               }`}
             >
               Dados
@@ -1076,11 +1254,19 @@ export default function ClienteDetalhePage() {
 
             <button
               type="button"
+              onClick={() => setAbaAtiva('processo')}
+              className={`px-4 py-2 rounded-xl font-medium ${
+                abaAtiva === 'processo' ? 'bg-black text-white' : 'bg-gray-100 text-gray-700'
+              }`}
+            >
+              Processo
+            </button>
+
+            <button
+              type="button"
               onClick={() => setAbaAtiva('honorarios')}
               className={`px-4 py-2 rounded-xl font-medium ${
-                abaAtiva === 'honorarios'
-                  ? 'bg-black text-white'
-                  : 'bg-gray-100 text-gray-700'
+                abaAtiva === 'honorarios' ? 'bg-black text-white' : 'bg-gray-100 text-gray-700'
               }`}
             >
               Honorários
@@ -1090,9 +1276,7 @@ export default function ClienteDetalhePage() {
               type="button"
               onClick={() => setAbaAtiva('arquivos')}
               className={`px-4 py-2 rounded-xl font-medium ${
-                abaAtiva === 'arquivos'
-                  ? 'bg-black text-white'
-                  : 'bg-gray-100 text-gray-700'
+                abaAtiva === 'arquivos' ? 'bg-black text-white' : 'bg-gray-100 text-gray-700'
               }`}
             >
               Arquivos

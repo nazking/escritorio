@@ -1,6 +1,4 @@
-'use client'
-
-import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { Cliente } from '@/types'
 import { formatarData, formatarMoeda } from '@/lib/utils'
 
@@ -15,69 +13,72 @@ export default function ClientesList({
   onFinalizarDeadline,
   onReabrirDeadline,
 }: Props) {
-  const router = useRouter()
-
   return (
     <div className="bg-white rounded-2xl shadow-lg p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-2xl font-bold">Clientes cadastrados</h2>
-        <span className="text-sm text-gray-500">
-          Total: {clientes.length}
-        </span>
-      </div>
+      <h2 className="text-2xl font-bold mb-4">Clientes cadastrados</h2>
 
-      <div className="space-y-4 max-h-[900px] overflow-auto pr-1">
+      <div className="space-y-4">
         {clientes.length === 0 && (
           <p className="text-gray-500">Nenhum cliente encontrado.</p>
         )}
 
         {clientes.map((cliente) => (
-          <div key={cliente.id} className="border rounded-xl p-4">
-            <h3 className="font-bold text-lg">{cliente.nome_completo}</h3>
-            <p className="text-sm text-gray-600">CPF: {cliente.cpf || 'Não informado'}</p>
-            <p className="text-sm text-gray-600">
-              Deadline: {formatarData(cliente.deadline)}
-            </p>
-            <p className="text-sm text-gray-600">
-              Status da deadline: {cliente.deadline_finalizada ? 'Finalizada' : 'Pendente'}
-            </p>
-            <p className="text-sm text-gray-600">
-              Valor da causa: {formatarMoeda(cliente.valor_causa)}
-            </p>
-            <p className="text-sm text-gray-600">
-              Honorários: {cliente.tem_honorarios ? 'Sim' : 'Não'}
-            </p>
+          <div
+            key={cliente.id}
+            className="border rounded-xl p-4 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4 w-full"
+          >
+            <div className="grid md:grid-cols-2 xl:grid-cols-5 gap-4 w-full">
+              <div>
+                <p className="text-xs uppercase text-gray-500">ID</p>
+                <p className="font-semibold">{cliente.public_id}</p>
+              </div>
 
-            <div className="mt-3 flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => router.push(`/clientes/${cliente.id}`)}
-                className="bg-blue-600 text-white px-3 py-2 rounded-lg text-sm"
+              <div>
+                <p className="text-xs uppercase text-gray-500">Nome</p>
+                <p className="font-semibold">{cliente.nome_completo}</p>
+              </div>
+
+              <div>
+                <p className="text-xs uppercase text-gray-500">Prazo da ação</p>
+                <p>{formatarData(cliente.deadline)}</p>
+              </div>
+
+              <div>
+                <p className="text-xs uppercase text-gray-500">Valor da causa</p>
+                <p>{formatarMoeda(cliente.valor_causa)}</p>
+              </div>
+
+              <div>
+                <p className="text-xs uppercase text-gray-500">Status do prazo</p>
+                <p>{cliente.deadline_finalizada ? 'Finalizado' : 'Em aberto'}</p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {cliente.deadline_finalizada ? (
+                <button
+                  type="button"
+                  onClick={() => onReabrirDeadline(cliente.id)}
+                  className="bg-yellow-600 text-white px-4 py-2 rounded-lg"
+                >
+                  Reabrir prazo
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => onFinalizarDeadline(cliente.id)}
+                  className="bg-green-700 text-white px-4 py-2 rounded-lg"
+                >
+                  Finalizar prazo
+                </button>
+              )}
+
+              <Link
+                href={`/clientes/${cliente.id}`}
+                className="bg-black text-white px-4 py-2 rounded-lg"
               >
                 Ver
-              </button>
-
-              {cliente.deadline && (
-                <>
-                  {cliente.deadline_finalizada ? (
-                    <button
-                      type="button"
-                      onClick={() => onReabrirDeadline(cliente.id)}
-                      className="bg-gray-800 text-white px-3 py-2 rounded-lg text-sm"
-                    >
-                      Reabrir deadline
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => onFinalizarDeadline(cliente.id)}
-                      className="bg-black text-white px-3 py-2 rounded-lg text-sm"
-                    >
-                      Finalizar deadline
-                    </button>
-                  )}
-                </>
-              )}
+              </Link>
             </div>
           </div>
         ))}

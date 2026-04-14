@@ -5,6 +5,7 @@ export type Usuario = {
 
 export type Cliente = {
   id: string
+  public_id: number
   nome_completo: string
   endereco: string | null
   bairro: string | null
@@ -19,6 +20,9 @@ export type Cliente = {
   deadline_finalizada: boolean
   valor_causa: number | null
   tem_honorarios: boolean
+  numero_processo?: string | null
+  comarca_processo?: string | null
+  data_distribuicao?: string | null
 }
 
 export type Parcela = {
