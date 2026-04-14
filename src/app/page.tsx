@@ -183,29 +183,7 @@ export default function HomePage() {
       setCarregando(false)
     }
   }
-
-  async function criarContaTeste() {
-    setCarregando(true)
-    setMensagem('')
-
-    try {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password: senha,
-      })
-
-      if (error) {
-        setMensagem('Erro ao criar conta: ' + error.message)
-        return
-      }
-
-      setMensagem('Conta criada com sucesso.')
-    } finally {
-      setCarregando(false)
-    }
-  }
-
-  async function sair() {
+   async function sair() {
     await supabase.auth.signOut()
     setMensagem('Você saiu da conta.')
   }
@@ -843,16 +821,6 @@ export default function HomePage() {
               {carregando ? 'Entrando...' : 'Entrar'}
             </button>
           </form>
-
-          <button
-            type="button"
-            onClick={criarContaTeste}
-            disabled={carregando}
-            className="w-full mt-3 border border-black rounded-lg py-2 font-medium hover:bg-gray-50 transition"
-          >
-            Criar conta
-          </button>
-
           {mensagem && (
             <p className="mt-4 text-sm text-center text-gray-700">{mensagem}</p>
           )}
