@@ -14,24 +14,6 @@ import FiltrosBusca from '@/components/FiltrosBusca'
 
 type AbaAtiva = 'dashboard' | 'cadastro' | 'consulta'
 
-function comTimeout<T>(promiseLike: PromiseLike<T>, ms = 15000): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => {
-      reject(new Error('Tempo limite excedido ao salvar.'))
-    }, ms)
-
-    Promise.resolve(promiseLike)
-      .then((resultado) => {
-        clearTimeout(timer)
-        resolve(resultado)
-      })
-      .catch((erro) => {
-        clearTimeout(timer)
-        reject(erro)
-      })
-  })
-}
-
 export default function HomePage() {
   const [abaAtiva, setAbaAtiva] = useState<AbaAtiva>('dashboard')
 
@@ -79,7 +61,7 @@ export default function HomePage() {
           email: session.user.email,
         }
         setUsuario(novoUsuario)
-        await carregarDados(session.user.id)
+        await carregarDados()
       } else {
         setUsuario(null)
         setClientes([])
@@ -106,20 +88,19 @@ export default function HomePage() {
         email: data.session.user.email,
       }
       setUsuario(novoUsuario)
-      await carregarDados(data.session.user.id)
+      await carregarDados()
     }
   }
 
-  async function carregarDados(userId: string) {
-    await Promise.all([carregarClientes(userId), carregarParcelas(userId)])
+  async function carregarDados() {
+    await Promise.all([carregarClientes(), carregarParcelas()])
   }
 
-  async function carregarClientes(userId: string) {
+  async function carregarClientes() {
     try {
       const { data, error } = await supabase
         .from('clientes')
         .select('*')
-        .eq('user_id', userId)
         .order('created_at', { ascending: false })
 
       if (error) {
@@ -134,7 +115,7 @@ export default function HomePage() {
     }
   }
 
-  async function carregarParcelas(userId: string) {
+  async function carregarParcelas() {
     try {
       const { data, error } = await supabase
         .from('parcelas_honorarios')
@@ -147,7 +128,6 @@ export default function HomePage() {
           status,
           cliente:clientes(nome_completo)
         `)
-        .eq('user_id', userId)
         .order('data_vencimento', { ascending: true })
 
       if (error) {
@@ -183,14 +163,13 @@ export default function HomePage() {
       setCarregando(false)
     }
   }
-   async function sair() {
+
+  async function sair() {
     await supabase.auth.signOut()
     setMensagem('Você saiu da conta.')
   }
 
   async function marcarParcelaComoPaga(parcelaId: string) {
-    if (!usuario) return
-
     const hoje = new Date().toISOString().slice(0, 10)
 
     const { error } = await supabase
@@ -200,7 +179,6 @@ export default function HomePage() {
         data_pagamento: hoje,
       })
       .eq('id', parcelaId)
-      .eq('user_id', usuario.id)
 
     if (error) {
       setMensagem('Erro ao marcar parcela como paga: ' + error.message)
@@ -208,19 +186,16 @@ export default function HomePage() {
     }
 
     setMensagem('Parcela marcada como paga.')
-    await carregarParcelas(usuario.id)
+    await carregarParcelas()
   }
 
   async function finalizarDeadline(clienteId: string) {
-    if (!usuario) return
-
     const { error } = await supabase
       .from('clientes')
       .update({
         deadline_finalizada: true,
       })
       .eq('id', clienteId)
-      .eq('user_id', usuario.id)
 
     if (error) {
       setMensagem('Erro ao finalizar deadline: ' + error.message)
@@ -228,19 +203,16 @@ export default function HomePage() {
     }
 
     setMensagem('Deadline marcada como finalizada.')
-    await carregarClientes(usuario.id)
+    await carregarClientes()
   }
 
   async function reabrirDeadline(clienteId: string) {
-    if (!usuario) return
-
     const { error } = await supabase
       .from('clientes')
       .update({
         deadline_finalizada: false,
       })
       .eq('id', clienteId)
-      .eq('user_id', usuario.id)
 
     if (error) {
       setMensagem('Erro ao reabrir deadline: ' + error.message)
@@ -248,7 +220,7 @@ export default function HomePage() {
     }
 
     setMensagem('Deadline reaberta com sucesso.')
-    await carregarClientes(usuario.id)
+    await carregarClientes()
   }
 
   async function salvarCliente(e: FormEvent) {
@@ -263,32 +235,27 @@ export default function HomePage() {
     setMensagem('Salvando cliente...')
 
     try {
-      const resultadoCliente: any = await comTimeout(
-        supabase
-          .from('clientes')
-          .insert({
-            user_id: usuario.id,
-            nome_completo: nomeCompleto,
-            endereco: endereco || null,
-            bairro: bairro || null,
-            cidade: cidade || null,
-            numero_casa: numeroCasa || null,
-            complemento: complemento || null,
-            cpf: cpf || null,
-            data_nascimento: dataNascimento || null,
-            descricao_caso: descricaoCaso || null,
-            data_acao: dataAcao || null,
-            deadline: deadline || null,
-            deadline_finalizada: false,
-            valor_causa: valorCausa ? moedaInputParaNumero(valorCausa) : 0,
-            tem_honorarios: temHonorarios,
-          })
-          .select()
-          .single()
-      )
-
-      const clienteInserido = resultadoCliente.data
-      const erroCliente = resultadoCliente.error
+      const { data: clienteInserido, error: erroCliente } = await supabase
+        .from('clientes')
+        .insert({
+          user_id: usuario.id,
+          nome_completo: nomeCompleto,
+          endereco: endereco || null,
+          bairro: bairro || null,
+          cidade: cidade || null,
+          numero_casa: numeroCasa || null,
+          complemento: complemento || null,
+          cpf: cpf || null,
+          data_nascimento: dataNascimento || null,
+          descricao_caso: descricaoCaso || null,
+          data_acao: dataAcao || null,
+          deadline: deadline || null,
+          deadline_finalizada: false,
+          valor_causa: valorCausa ? moedaInputParaNumero(valorCausa) : 0,
+          tem_honorarios: temHonorarios,
+        })
+        .select()
+        .single()
 
       if (erroCliente || !clienteInserido) {
         setMensagem('Erro ao salvar cliente: ' + (erroCliente?.message || 'Erro desconhecido'))
@@ -310,31 +277,26 @@ export default function HomePage() {
           return
         }
 
-        const resultadoHonorario: any = await comTimeout(
-          supabase
-            .from('honorarios')
-            .insert({
-              user_id: usuario.id,
-              cliente_id: clienteInserido.id,
-              tem_honorarios: true,
-              valor_honorarios: totalHonorarios,
-              parcelado: ehParcelado,
-              quantidade_parcelas: qtdParcelas,
-            })
-            .select()
-            .single()
-        )
-
-        const honorarioInserido = resultadoHonorario.data
-        const erroHonorario = resultadoHonorario.error
+        const { data: honorarioInserido, error: erroHonorario } = await supabase
+          .from('honorarios')
+          .insert({
+            user_id: usuario.id,
+            cliente_id: clienteInserido.id,
+            tem_honorarios: true,
+            valor_honorarios: totalHonorarios,
+            parcelado: ehParcelado,
+            quantidade_parcelas: qtdParcelas,
+          })
+          .select()
+          .single()
 
         if (erroHonorario || !honorarioInserido) {
           setMensagem(
             'Cliente salvo, mas houve erro ao salvar honorários: ' +
               (erroHonorario?.message || 'Erro desconhecido')
           )
-          await carregarClientes(usuario.id)
-          await carregarParcelas(usuario.id)
+          await carregarClientes()
+          await carregarParcelas()
           return
         }
 
@@ -351,19 +313,17 @@ export default function HomePage() {
           status: 'pendente',
         }))
 
-        const resultadoParcelas: any = await comTimeout(
-          supabase.from('parcelas_honorarios').insert(parcelasGeradas)
-        )
-
-        const erroParcelas = resultadoParcelas.error
+        const { error: erroParcelas } = await supabase
+          .from('parcelas_honorarios')
+          .insert(parcelasGeradas)
 
         if (erroParcelas) {
           setMensagem(
             'Cliente e honorários salvos, mas houve erro ao gerar parcelas: ' +
               erroParcelas.message
           )
-          await carregarClientes(usuario.id)
-          await carregarParcelas(usuario.id)
+          await carregarClientes()
+          await carregarParcelas()
           return
         }
       }
@@ -387,17 +347,13 @@ export default function HomePage() {
       setHonorariosParcelados(false)
       setQuantidadeParcelas('')
 
-      await carregarClientes(usuario.id)
-      await carregarParcelas(usuario.id)
+      await carregarClientes()
+      await carregarParcelas()
 
       setAbaAtiva('consulta')
     } catch (error) {
       console.error(error)
-      setMensagem(
-        error instanceof Error
-          ? error.message
-          : 'Ocorreu um erro inesperado ao salvar o cliente.'
-      )
+      setMensagem('Ocorreu um erro inesperado ao salvar o cliente.')
     } finally {
       setCarregando(false)
     }
@@ -821,6 +777,7 @@ export default function HomePage() {
               {carregando ? 'Entrando...' : 'Entrar'}
             </button>
           </form>
+
           {mensagem && (
             <p className="mt-4 text-sm text-center text-gray-700">{mensagem}</p>
           )}
