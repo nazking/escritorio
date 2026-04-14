@@ -32,6 +32,12 @@ type ArquivoCliente = {
   created_at?: string
 }
 
+type NotaCliente = {
+  id: string
+  conteudo: string
+  created_at: string
+}
+
 type AbaCliente = 'dados' | 'honorarios' | 'arquivos'
 
 function limparNomeArquivo(nome: string) {
@@ -49,6 +55,15 @@ function limparNomeArquivo(nome: string) {
   return extensao ? `${baseLimpa}.${extensao.toLowerCase()}` : baseLimpa
 }
 
+function formatarDataHora(dataIso: string | null | undefined) {
+  if (!dataIso) return 'Não informado'
+
+  return new Date(dataIso).toLocaleString('pt-BR', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  })
+}
+
 export default function ClienteDetalhePage() {
   const params = useParams()
   const router = useRouter()
@@ -59,6 +74,7 @@ export default function ClienteDetalhePage() {
   const [cliente, setCliente] = useState<Cliente | null>(null)
   const [parcelas, setParcelas] = useState<ParcelaCliente[]>([])
   const [arquivos, setArquivos] = useState<ArquivoCliente[]>([])
+  const [notas, setNotas] = useState<NotaCliente[]>([])
   const [carregando, setCarregando] = useState(true)
   const [mensagem, setMensagem] = useState('')
   const [salvandoParcelaId, setSalvandoParcelaId] = useState<string | null>(null)
@@ -66,6 +82,9 @@ export default function ClienteDetalhePage() {
   const [enviandoArquivo, setEnviandoArquivo] = useState(false)
   const [excluindoArquivoId, setExcluindoArquivoId] = useState<string | null>(null)
   const [excluindoCliente, setExcluindoCliente] = useState(false)
+  const [novaNota, setNovaNota] = useState('')
+  const [salvandoNota, setSalvandoNota] = useState(false)
+  const [excluindoNotaId, setExcluindoNotaId] = useState<string | null>(null)
 
   const [nomeCompleto, setNomeCompleto] = useState('')
   const [endereco, setEndereco] = useState('')
@@ -94,6 +113,7 @@ export default function ClienteDetalhePage() {
       { data: clienteData, error: clienteError },
       { data: parcelasData, error: parcelasError },
       { data: arquivosData, error: arquivosError },
+      { data: notasData, error: notasError },
     ] = await Promise.all([
       supabase
         .from('clientes')
@@ -109,6 +129,12 @@ export default function ClienteDetalhePage() {
 
       supabase
         .from('arquivos_cliente')
+        .select('*')
+        .eq('cliente_id', clienteId)
+        .order('created_at', { ascending: false }),
+
+      supabase
+        .from('notas_cliente')
         .select('*')
         .eq('cliente_id', clienteId)
         .order('created_at', { ascending: false }),
@@ -132,9 +158,16 @@ export default function ClienteDetalhePage() {
       return
     }
 
+    if (notasError) {
+      setMensagem('Erro ao carregar notas: ' + notasError.message)
+      setCarregando(false)
+      return
+    }
+
     setCliente(clienteData)
     setParcelas((parcelasData as ParcelaCliente[]) || [])
     setArquivos((arquivosData as ArquivoCliente[]) || [])
+    setNotas((notasData as NotaCliente[]) || [])
 
     setNomeCompleto(clienteData.nome_completo || '')
     setEndereco(clienteData.endereco || '')
@@ -243,6 +276,60 @@ export default function ClienteDetalhePage() {
     setCliente(data)
     setMensagem('Dados do cliente atualizados com sucesso.')
     setSalvandoEdicao(false)
+    await carregarTudo()
+  }
+
+  async function adicionarNota() {
+    if (!novaNota.trim()) {
+      setMensagem('Digite uma nota antes de salvar.')
+      return
+    }
+
+    setSalvandoNota(true)
+    setMensagem('')
+
+    const { data: authData } = await supabase.auth.getUser()
+
+    const { error } = await supabase
+      .from('notas_cliente')
+      .insert({
+        cliente_id: clienteId,
+        user_id: authData.user?.id || null,
+        conteudo: novaNota.trim(),
+      })
+
+    if (error) {
+      setMensagem('Erro ao adicionar nota: ' + error.message)
+      setSalvandoNota(false)
+      return
+    }
+
+    setNovaNota('')
+    setMensagem('Nota adicionada com sucesso.')
+    setSalvandoNota(false)
+    await carregarTudo()
+  }
+
+  async function excluirNota(notaId: string) {
+    const confirmar = window.confirm('Deseja excluir esta nota?')
+    if (!confirmar) return
+
+    setExcluindoNotaId(notaId)
+    setMensagem('')
+
+    const { error } = await supabase
+      .from('notas_cliente')
+      .delete()
+      .eq('id', notaId)
+
+    if (error) {
+      setMensagem('Erro ao excluir nota: ' + error.message)
+      setExcluindoNotaId(null)
+      return
+    }
+
+    setMensagem('Nota excluída com sucesso.')
+    setExcluindoNotaId(null)
     await carregarTudo()
   }
 
@@ -361,7 +448,7 @@ export default function ClienteDetalhePage() {
 
   async function excluirCliente() {
     const confirmar = window.confirm(
-      'Tem certeza que deseja excluir este cliente? Essa ação vai apagar também honorários, parcelas e registros de arquivos.'
+      'Tem certeza que deseja excluir este cliente? Essa ação vai apagar também honorários, parcelas, notas e registros de arquivos.'
     )
     if (!confirmar) return
 
@@ -417,164 +504,221 @@ export default function ClienteDetalhePage() {
   function renderAbaConteudo() {
     if (abaAtiva === 'dados') {
       return (
-        <div className="bg-white rounded-2xl shadow-lg p-6">
-          <h2 className="text-2xl font-bold mb-4">Editar cliente</h2>
+        <div className="space-y-6">
+          <div className="bg-white rounded-2xl shadow-lg p-6">
+            <h2 className="text-2xl font-bold mb-4">Editar cliente</h2>
 
-          <form onSubmit={salvarEdicao} className="space-y-4">
-            <div className="grid md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Nome completo</label>
-                <input
-                  type="text"
-                  value={nomeCompleto}
-                  onChange={(e) => setNomeCompleto(e.target.value)}
-                  className="w-full border rounded-lg px-3 py-2"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">CPF</label>
-                <input
-                  type="text"
-                  value={cpf}
-                  onChange={(e) => setCpf(formatarCpf(e.target.value))}
-                  className="w-full border rounded-lg px-3 py-2"
-                  maxLength={14}
-                  placeholder="000.000.000-00"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">Endereço</label>
-                <input
-                  type="text"
-                  value={endereco}
-                  onChange={(e) => setEndereco(e.target.value)}
-                  className="w-full border rounded-lg px-3 py-2"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">Bairro</label>
-                <input
-                  type="text"
-                  value={bairro}
-                  onChange={(e) => setBairro(e.target.value)}
-                  className="w-full border rounded-lg px-3 py-2"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">Cidade</label>
-                <input
-                  type="text"
-                  value={cidade}
-                  onChange={(e) => setCidade(e.target.value)}
-                  className="w-full border rounded-lg px-3 py-2"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">Número da casa</label>
-                <input
-                  type="text"
-                  value={numeroCasa}
-                  onChange={(e) => setNumeroCasa(e.target.value)}
-                  className="w-full border rounded-lg px-3 py-2"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">Complemento</label>
-                <input
-                  type="text"
-                  value={complemento}
-                  onChange={(e) => setComplemento(e.target.value)}
-                  className="w-full border rounded-lg px-3 py-2"
-                  placeholder="Opcional"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">Data de nascimento</label>
-                <input
-                  type="date"
-                  value={dataNascimento}
-                  onChange={(e) => setDataNascimento(e.target.value)}
-                  className="w-full border rounded-lg px-3 py-2"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">Data da ação</label>
-                <input
-                  type="date"
-                  value={dataAcao}
-                  onChange={(e) => setDataAcao(e.target.value)}
-                  className="w-full border rounded-lg px-3 py-2"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">Deadline</label>
-                <input
-                  type="date"
-                  value={deadline}
-                  onChange={(e) => setDeadline(e.target.value)}
-                  className="w-full border rounded-lg px-3 py-2"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">Valor da causa</label>
-                <input
-                  type="text"
-                  value={valorCausa}
-                  onChange={(e) => setValorCausa(formatarMoedaInput(e.target.value))}
-                  className="w-full border rounded-lg px-3 py-2"
-                  placeholder="R$ 0,00"
-                />
-              </div>
-
-              <div className="flex flex-col justify-end gap-2">
-                <label className="flex items-center gap-2">
+            <form onSubmit={salvarEdicao} className="space-y-4">
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Nome completo</label>
                   <input
-                    type="checkbox"
-                    checked={temHonorarios}
-                    onChange={(e) => setTemHonorarios(e.target.checked)}
+                    type="text"
+                    value={nomeCompleto}
+                    onChange={(e) => setNomeCompleto(e.target.value)}
+                    className="w-full border rounded-lg px-3 py-2"
+                    required
                   />
-                  <span className="text-sm font-medium">Tem honorários?</span>
-                </label>
+                </div>
 
-                <label className="flex items-center gap-2">
+                <div>
+                  <label className="block text-sm font-medium mb-1">CPF</label>
                   <input
-                    type="checkbox"
-                    checked={deadlineFinalizada}
-                    onChange={(e) => setDeadlineFinalizada(e.target.checked)}
+                    type="text"
+                    value={cpf}
+                    onChange={(e) => setCpf(formatarCpf(e.target.value))}
+                    className="w-full border rounded-lg px-3 py-2"
+                    maxLength={14}
+                    placeholder="000.000.000-00"
                   />
-                  <span className="text-sm font-medium">Deadline finalizada?</span>
-                </label>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Endereço</label>
+                  <input
+                    type="text"
+                    value={endereco}
+                    onChange={(e) => setEndereco(e.target.value)}
+                    className="w-full border rounded-lg px-3 py-2"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Bairro</label>
+                  <input
+                    type="text"
+                    value={bairro}
+                    onChange={(e) => setBairro(e.target.value)}
+                    className="w-full border rounded-lg px-3 py-2"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Cidade</label>
+                  <input
+                    type="text"
+                    value={cidade}
+                    onChange={(e) => setCidade(e.target.value)}
+                    className="w-full border rounded-lg px-3 py-2"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Número da casa</label>
+                  <input
+                    type="text"
+                    value={numeroCasa}
+                    onChange={(e) => setNumeroCasa(e.target.value)}
+                    className="w-full border rounded-lg px-3 py-2"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Complemento</label>
+                  <input
+                    type="text"
+                    value={complemento}
+                    onChange={(e) => setComplemento(e.target.value)}
+                    className="w-full border rounded-lg px-3 py-2"
+                    placeholder="Opcional"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Data de nascimento</label>
+                  <input
+                    type="date"
+                    value={dataNascimento}
+                    onChange={(e) => setDataNascimento(e.target.value)}
+                    className="w-full border rounded-lg px-3 py-2"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Data da ação</label>
+                  <input
+                    type="date"
+                    value={dataAcao}
+                    onChange={(e) => setDataAcao(e.target.value)}
+                    className="w-full border rounded-lg px-3 py-2"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Deadline</label>
+                  <input
+                    type="date"
+                    value={deadline}
+                    onChange={(e) => setDeadline(e.target.value)}
+                    className="w-full border rounded-lg px-3 py-2"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Valor da causa</label>
+                  <input
+                    type="text"
+                    value={valorCausa}
+                    onChange={(e) => setValorCausa(formatarMoedaInput(e.target.value))}
+                    className="w-full border rounded-lg px-3 py-2"
+                    placeholder="R$ 0,00"
+                  />
+                </div>
+
+                <div className="flex flex-col justify-end gap-2">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={temHonorarios}
+                      onChange={(e) => setTemHonorarios(e.target.checked)}
+                    />
+                    <span className="text-sm font-medium">Tem honorários?</span>
+                  </label>
+
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={deadlineFinalizada}
+                      onChange={(e) => setDeadlineFinalizada(e.target.checked)}
+                    />
+                    <span className="text-sm font-medium">Deadline finalizada?</span>
+                  </label>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Descrição do caso</label>
+                <textarea
+                  value={descricaoCaso}
+                  onChange={(e) => setDescricaoCaso(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2 min-h-[120px]"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={salvandoEdicao}
+                className="bg-black text-white px-4 py-2 rounded-lg"
+              >
+                {salvandoEdicao ? 'Salvando...' : 'Salvar alterações'}
+              </button>
+            </form>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-lg p-6">
+            <h2 className="text-2xl font-bold mb-4">Notas e atualizações</h2>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Nova nota</label>
+                <textarea
+                  value={novaNota}
+                  onChange={(e) => setNovaNota(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2 min-h-[110px]"
+                  placeholder="Escreva aqui uma atualização, observação ou andamento do cliente..."
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={adicionarNota}
+                disabled={salvandoNota}
+                className="bg-black text-white px-4 py-2 rounded-lg"
+              >
+                {salvandoNota ? 'Salvando nota...' : 'Adicionar nota'}
+              </button>
+
+              <div className="pt-2 space-y-3">
+                {notas.length === 0 && (
+                  <p className="text-gray-500">Nenhuma nota cadastrada ainda.</p>
+                )}
+
+                {notas.map((nota) => (
+                  <div key={nota.id} className="border rounded-xl p-4 bg-gray-50">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="text-sm text-gray-500 mb-2">
+                          {formatarDataHora(nota.created_at)}
+                        </p>
+                        <p className="whitespace-pre-wrap text-gray-800">
+                          {nota.conteudo}
+                        </p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => excluirNota(nota.id)}
+                        disabled={excluindoNotaId === nota.id}
+                        className="bg-red-600 text-white px-3 py-2 rounded-lg text-sm"
+                      >
+                        {excluindoNotaId === nota.id ? 'Excluindo...' : 'Excluir'}
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-1">Descrição do caso</label>
-              <textarea
-                value={descricaoCaso}
-                onChange={(e) => setDescricaoCaso(e.target.value)}
-                className="w-full border rounded-lg px-3 py-2 min-h-[120px]"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={salvandoEdicao}
-              className="bg-black text-white px-4 py-2 rounded-lg"
-            >
-              {salvandoEdicao ? 'Salvando...' : 'Salvar alterações'}
-            </button>
-          </form>
+          </div>
         </div>
       )
     }
