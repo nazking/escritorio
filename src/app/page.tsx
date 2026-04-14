@@ -118,7 +118,6 @@ export default function HomePage() {
       const { data, error } = await supabase
         .from('clientes')
         .select('*')
-        .eq('user_id', userId)
         .order('created_at', { ascending: false })
 
       if (error) {
@@ -146,7 +145,6 @@ export default function HomePage() {
           status,
           cliente:clientes(nome_completo)
         `)
-        .eq('user_id', userId)
         .order('data_vencimento', { ascending: true })
 
       if (error) {
@@ -221,7 +219,6 @@ export default function HomePage() {
         data_pagamento: hoje,
       })
       .eq('id', parcelaId)
-      .eq('user_id', usuario.id)
 
     if (error) {
       setMensagem('Erro ao marcar parcela como paga: ' + error.message)
@@ -241,7 +238,6 @@ export default function HomePage() {
         deadline_finalizada: true,
       })
       .eq('id', clienteId)
-      .eq('user_id', usuario.id)
 
     if (error) {
       setMensagem('Erro ao finalizar deadline: ' + error.message)
@@ -261,7 +257,6 @@ export default function HomePage() {
         deadline_finalizada: false,
       })
       .eq('id', clienteId)
-      .eq('user_id', usuario.id)
 
     if (error) {
       setMensagem('Erro ao reabrir deadline: ' + error.message)

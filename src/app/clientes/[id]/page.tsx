@@ -3,7 +3,14 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { formatarData, formatarMoeda, diferencaDias } from '@/lib/utils'
+import {
+  formatarCpf,
+  formatarData,
+  formatarMoeda,
+  formatarMoedaInput,
+  diferencaDias,
+  moedaInputParaNumero,
+} from '@/lib/utils'
 import { Cliente } from '@/types'
 
 type ParcelaCliente = {
@@ -62,6 +69,10 @@ export default function ClienteDetalhePage() {
 
   const [nomeCompleto, setNomeCompleto] = useState('')
   const [endereco, setEndereco] = useState('')
+  const [bairro, setBairro] = useState('')
+  const [cidade, setCidade] = useState('')
+  const [numeroCasa, setNumeroCasa] = useState('')
+  const [complemento, setComplemento] = useState('')
   const [cpf, setCpf] = useState('')
   const [dataNascimento, setDataNascimento] = useState('')
   const [descricaoCaso, setDescricaoCaso] = useState('')
@@ -79,16 +90,6 @@ export default function ClienteDetalhePage() {
     setCarregando(true)
     setMensagem('')
 
-    const { data: authData } = await supabase.auth.getUser()
-
-    if (!authData.user) {
-      setMensagem('Usuário não autenticado.')
-      setCarregando(false)
-      return
-    }
-
-    const userId = authData.user.id
-
     const [
       { data: clienteData, error: clienteError },
       { data: parcelasData, error: parcelasError },
@@ -98,21 +99,18 @@ export default function ClienteDetalhePage() {
         .from('clientes')
         .select('*')
         .eq('id', clienteId)
-        .eq('user_id', userId)
         .single(),
 
       supabase
         .from('parcelas_honorarios')
         .select('*')
         .eq('cliente_id', clienteId)
-        .eq('user_id', userId)
         .order('numero_parcela', { ascending: true }),
 
       supabase
         .from('arquivos_cliente')
         .select('*')
         .eq('cliente_id', clienteId)
-        .eq('user_id', userId)
         .order('created_at', { ascending: false }),
     ])
 
@@ -140,12 +138,20 @@ export default function ClienteDetalhePage() {
 
     setNomeCompleto(clienteData.nome_completo || '')
     setEndereco(clienteData.endereco || '')
+    setBairro(clienteData.bairro || '')
+    setCidade(clienteData.cidade || '')
+    setNumeroCasa(clienteData.numero_casa || '')
+    setComplemento(clienteData.complemento || '')
     setCpf(clienteData.cpf || '')
     setDataNascimento(clienteData.data_nascimento || '')
     setDescricaoCaso(clienteData.descricao_caso || '')
     setDataAcao(clienteData.data_acao || '')
     setDeadline(clienteData.deadline || '')
-    setValorCausa(clienteData.valor_causa != null ? String(clienteData.valor_causa) : '')
+    setValorCausa(
+      clienteData.valor_causa != null
+        ? formatarMoedaInput(String(clienteData.valor_causa).replace('.', ','))
+        : ''
+    )
     setTemHonorarios(clienteData.tem_honorarios || false)
     setDeadlineFinalizada(clienteData.deadline_finalizada || false)
 
@@ -153,13 +159,6 @@ export default function ClienteDetalhePage() {
   }
 
   async function marcarComoPaga(parcelaId: string) {
-    const { data: authData } = await supabase.auth.getUser()
-
-    if (!authData.user) {
-      setMensagem('Usuário não autenticado.')
-      return
-    }
-
     setSalvandoParcelaId(parcelaId)
     setMensagem('')
 
@@ -172,7 +171,6 @@ export default function ClienteDetalhePage() {
         data_pagamento: hoje,
       })
       .eq('id', parcelaId)
-      .eq('user_id', authData.user.id)
 
     if (error) {
       setMensagem('Erro ao marcar parcela como paga: ' + error.message)
@@ -186,13 +184,6 @@ export default function ClienteDetalhePage() {
   }
 
   async function desfazerPagamento(parcelaId: string) {
-    const { data: authData } = await supabase.auth.getUser()
-
-    if (!authData.user) {
-      setMensagem('Usuário não autenticado.')
-      return
-    }
-
     setSalvandoParcelaId(parcelaId)
     setMensagem('')
 
@@ -203,7 +194,6 @@ export default function ClienteDetalhePage() {
         data_pagamento: null,
       })
       .eq('id', parcelaId)
-      .eq('user_id', authData.user.id)
 
     if (error) {
       setMensagem('Erro ao desfazer pagamento: ' + error.message)
@@ -219,13 +209,6 @@ export default function ClienteDetalhePage() {
   async function salvarEdicao(e: FormEvent) {
     e.preventDefault()
 
-    const { data: authData } = await supabase.auth.getUser()
-
-    if (!authData.user) {
-      setMensagem('Usuário não autenticado.')
-      return
-    }
-
     setSalvandoEdicao(true)
     setMensagem('')
 
@@ -234,17 +217,20 @@ export default function ClienteDetalhePage() {
       .update({
         nome_completo: nomeCompleto,
         endereco: endereco || null,
+        bairro: bairro || null,
+        cidade: cidade || null,
+        numero_casa: numeroCasa || null,
+        complemento: complemento || null,
         cpf: cpf || null,
         data_nascimento: dataNascimento || null,
         descricao_caso: descricaoCaso || null,
         data_acao: dataAcao || null,
         deadline: deadline || null,
-        valor_causa: valorCausa ? Number(valorCausa) : 0,
+        valor_causa: valorCausa ? moedaInputParaNumero(valorCausa) : 0,
         tem_honorarios: temHonorarios,
         deadline_finalizada: deadlineFinalizada,
       })
       .eq('id', clienteId)
-      .eq('user_id', authData.user.id)
       .select()
       .single()
 
@@ -257,6 +243,7 @@ export default function ClienteDetalhePage() {
     setCliente(data)
     setMensagem('Dados do cliente atualizados com sucesso.')
     setSalvandoEdicao(false)
+    await carregarTudo()
   }
 
   async function enviarArquivo(e: React.ChangeEvent<HTMLInputElement>) {
@@ -342,13 +329,6 @@ export default function ClienteDetalhePage() {
     const confirmar = window.confirm(`Deseja excluir o arquivo "${arquivo.nome_arquivo}"?`)
     if (!confirmar) return
 
-    const { data: authData } = await supabase.auth.getUser()
-
-    if (!authData.user) {
-      setMensagem('Usuário não autenticado.')
-      return
-    }
-
     setExcluindoArquivoId(arquivo.id)
     setMensagem('')
 
@@ -366,7 +346,6 @@ export default function ClienteDetalhePage() {
       .from('arquivos_cliente')
       .delete()
       .eq('id', arquivo.id)
-      .eq('user_id', authData.user.id)
 
     if (bancoError) {
       setMensagem('Arquivo removido do storage, mas houve erro ao apagar registro: ' + bancoError.message)
@@ -385,13 +364,6 @@ export default function ClienteDetalhePage() {
       'Tem certeza que deseja excluir este cliente? Essa ação vai apagar também honorários, parcelas e registros de arquivos.'
     )
     if (!confirmar) return
-
-    const { data: authData } = await supabase.auth.getUser()
-
-    if (!authData.user) {
-      setMensagem('Usuário não autenticado.')
-      return
-    }
 
     setExcluindoCliente(true)
     setMensagem('')
@@ -414,7 +386,6 @@ export default function ClienteDetalhePage() {
         .from('clientes')
         .delete()
         .eq('id', clienteId)
-        .eq('user_id', authData.user.id)
 
       if (clienteError) {
         setMensagem('Erro ao excluir cliente: ' + clienteError.message)
@@ -467,8 +438,10 @@ export default function ClienteDetalhePage() {
                 <input
                   type="text"
                   value={cpf}
-                  onChange={(e) => setCpf(e.target.value)}
+                  onChange={(e) => setCpf(formatarCpf(e.target.value))}
                   className="w-full border rounded-lg px-3 py-2"
+                  maxLength={14}
+                  placeholder="000.000.000-00"
                 />
               </div>
 
@@ -479,6 +452,47 @@ export default function ClienteDetalhePage() {
                   value={endereco}
                   onChange={(e) => setEndereco(e.target.value)}
                   className="w-full border rounded-lg px-3 py-2"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Bairro</label>
+                <input
+                  type="text"
+                  value={bairro}
+                  onChange={(e) => setBairro(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Cidade</label>
+                <input
+                  type="text"
+                  value={cidade}
+                  onChange={(e) => setCidade(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Número da casa</label>
+                <input
+                  type="text"
+                  value={numeroCasa}
+                  onChange={(e) => setNumeroCasa(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Complemento</label>
+                <input
+                  type="text"
+                  value={complemento}
+                  onChange={(e) => setComplemento(e.target.value)}
+                  className="w-full border rounded-lg px-3 py-2"
+                  placeholder="Opcional"
                 />
               </div>
 
@@ -515,11 +529,11 @@ export default function ClienteDetalhePage() {
               <div>
                 <label className="block text-sm font-medium mb-1">Valor da causa</label>
                 <input
-                  type="number"
-                  step="0.01"
+                  type="text"
                   value={valorCausa}
-                  onChange={(e) => setValorCausa(e.target.value)}
+                  onChange={(e) => setValorCausa(formatarMoedaInput(e.target.value))}
                   className="w-full border rounded-lg px-3 py-2"
+                  placeholder="R$ 0,00"
                 />
               </div>
 
