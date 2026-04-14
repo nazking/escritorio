@@ -91,56 +91,52 @@ export default function HomePage() {
     await Promise.all([carregarClientes(userId), carregarParcelas(userId)])
   }
 
- async function carregarClientes(userId: string) {
-  try {
-    const { data, error } = await supabase
-      .from('clientes')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
+  async function carregarClientes(userId: string) {
+    try {
+      const { data, error } = await supabase
+        .from('clientes')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
 
-    if (error) {
-      setMensagem('Erro ao carregar clientes: ' + error.message)
-      return
+      if (error) {
+        setMensagem('Erro ao carregar clientes: ' + error.message)
+        return
+      }
+
+      setClientes(data || [])
+    } catch (error) {
+      console.error(error)
+      setMensagem('Erro inesperado ao carregar clientes.')
     }
-
-    setClientes(data || [])
-  } catch (error) {
-    console.error(error)
-    setMensagem('Erro inesperado ao carregar clientes.')
-  }
-}
-    setClientes(data || [])
   }
 
- async function carregarParcelas(userId: string) {
-  try {
-    const { data, error } = await supabase
-      .from('parcelas_honorarios')
-      .select(`
-        id,
-        cliente_id,
-        numero_parcela,
-        valor_parcela,
-        data_vencimento,
-        status,
-        cliente:clientes(nome_completo)
-      `)
-      .eq('user_id', userId)
-      .order('data_vencimento', { ascending: true })
+  async function carregarParcelas(userId: string) {
+    try {
+      const { data, error } = await supabase
+        .from('parcelas_honorarios')
+        .select(`
+          id,
+          cliente_id,
+          numero_parcela,
+          valor_parcela,
+          data_vencimento,
+          status,
+          cliente:clientes(nome_completo)
+        `)
+        .eq('user_id', userId)
+        .order('data_vencimento', { ascending: true })
 
-    if (error) {
-      setMensagem('Erro ao carregar parcelas: ' + error.message)
-      return
+      if (error) {
+        setMensagem('Erro ao carregar parcelas: ' + error.message)
+        return
+      }
+
+      setParcelas((data ?? []) as Parcela[])
+    } catch (error) {
+      console.error(error)
+      setMensagem('Erro inesperado ao carregar parcelas.')
     }
-
-    setParcelas((data ?? []) as Parcela[])
-  } catch (error) {
-    console.error(error)
-    setMensagem('Erro inesperado ao carregar parcelas.')
-  }
-}
-    setParcelas((data ?? []) as Parcela[])
   }
 
   async function fazerLogin(e: FormEvent) {
@@ -255,132 +251,132 @@ export default function HomePage() {
   }
 
   async function salvarCliente(e: FormEvent) {
-  e.preventDefault()
+    e.preventDefault()
 
-  if (!usuario) {
-    setMensagem('Usuário não identificado.')
-    return
-  }
-
-  setCarregando(true)
-  setMensagem('')
-
-  try {
-    const { data: clienteInserido, error: erroCliente } = await supabase
-      .from('clientes')
-      .insert({
-        user_id: usuario.id,
-        nome_completo: nomeCompleto,
-        endereco: endereco || null,
-        cpf: cpf || null,
-        data_nascimento: dataNascimento || null,
-        descricao_caso: descricaoCaso || null,
-        data_acao: dataAcao || null,
-        deadline: deadline || null,
-        deadline_finalizada: false,
-        valor_causa: valorCausa ? Number(valorCausa) : 0,
-        tem_honorarios: temHonorarios,
-      })
-      .select()
-      .single()
-
-    if (erroCliente || !clienteInserido) {
-      setMensagem('Erro ao salvar cliente: ' + (erroCliente?.message || 'Erro desconhecido'))
+    if (!usuario) {
+      setMensagem('Usuário não identificado.')
       return
     }
 
-    if (temHonorarios) {
-      const totalHonorarios = Number(valorHonorarios || 0)
-      const ehParcelado = honorariosParcelados
-      const qtdParcelas = ehParcelado ? Number(quantidadeParcelas || 0) : 1
+    setCarregando(true)
+    setMensagem('')
 
-      if (!totalHonorarios || totalHonorarios <= 0) {
-        setMensagem('Informe um valor válido para os honorários.')
-        return
-      }
-
-      if (!qtdParcelas || qtdParcelas <= 0) {
-        setMensagem('Informe uma quantidade válida de parcelas.')
-        return
-      }
-
-      const { data: honorarioInserido, error: erroHonorario } = await supabase
-        .from('honorarios')
+    try {
+      const { data: clienteInserido, error: erroCliente } = await supabase
+        .from('clientes')
         .insert({
           user_id: usuario.id,
-          cliente_id: clienteInserido.id,
-          tem_honorarios: true,
-          valor_honorarios: totalHonorarios,
-          parcelado: ehParcelado,
-          quantidade_parcelas: qtdParcelas,
+          nome_completo: nomeCompleto,
+          endereco: endereco || null,
+          cpf: cpf || null,
+          data_nascimento: dataNascimento || null,
+          descricao_caso: descricaoCaso || null,
+          data_acao: dataAcao || null,
+          deadline: deadline || null,
+          deadline_finalizada: false,
+          valor_causa: valorCausa ? Number(valorCausa) : 0,
+          tem_honorarios: temHonorarios,
         })
         .select()
         .single()
 
-      if (erroHonorario || !honorarioInserido) {
-        setMensagem(
-          'Cliente salvo, mas houve erro ao salvar honorários: ' +
-            (erroHonorario?.message || 'Erro desconhecido')
-        )
-        await carregarClientes(usuario.id)
-        await carregarParcelas(usuario.id)
+      if (erroCliente || !clienteInserido) {
+        setMensagem('Erro ao salvar cliente: ' + (erroCliente?.message || 'Erro desconhecido'))
         return
       }
 
-      const baseVencimento = dataAcao || new Date().toISOString().slice(0, 10)
-      const valorParcela = totalHonorarios / qtdParcelas
+      if (temHonorarios) {
+        const totalHonorarios = Number(valorHonorarios || 0)
+        const ehParcelado = honorariosParcelados
+        const qtdParcelas = ehParcelado ? Number(quantidadeParcelas || 0) : 1
 
-      const parcelasGeradas = Array.from({ length: qtdParcelas }).map((_, index) => ({
-        user_id: usuario.id,
-        cliente_id: clienteInserido.id,
-        honorario_id: honorarioInserido.id,
-        numero_parcela: index + 1,
-        valor_parcela: Number(valorParcela.toFixed(2)),
-        data_vencimento: adicionarMeses(baseVencimento, index),
-        status: 'pendente',
-      }))
+        if (!totalHonorarios || totalHonorarios <= 0) {
+          setMensagem('Informe um valor válido para os honorários.')
+          return
+        }
 
-      const { error: erroParcelas } = await supabase
-        .from('parcelas_honorarios')
-        .insert(parcelasGeradas)
+        if (!qtdParcelas || qtdParcelas <= 0) {
+          setMensagem('Informe uma quantidade válida de parcelas.')
+          return
+        }
 
-      if (erroParcelas) {
-        setMensagem(
-          'Cliente e honorários salvos, mas houve erro ao gerar parcelas: ' +
-            erroParcelas.message
-        )
-        await carregarClientes(usuario.id)
-        await carregarParcelas(usuario.id)
-        return
+        const { data: honorarioInserido, error: erroHonorario } = await supabase
+          .from('honorarios')
+          .insert({
+            user_id: usuario.id,
+            cliente_id: clienteInserido.id,
+            tem_honorarios: true,
+            valor_honorarios: totalHonorarios,
+            parcelado: ehParcelado,
+            quantidade_parcelas: qtdParcelas,
+          })
+          .select()
+          .single()
+
+        if (erroHonorario || !honorarioInserido) {
+          setMensagem(
+            'Cliente salvo, mas houve erro ao salvar honorários: ' +
+              (erroHonorario?.message || 'Erro desconhecido')
+          )
+          await carregarClientes(usuario.id)
+          await carregarParcelas(usuario.id)
+          return
+        }
+
+        const baseVencimento = dataAcao || new Date().toISOString().slice(0, 10)
+        const valorParcela = totalHonorarios / qtdParcelas
+
+        const parcelasGeradas = Array.from({ length: qtdParcelas }).map((_, index) => ({
+          user_id: usuario.id,
+          cliente_id: clienteInserido.id,
+          honorario_id: honorarioInserido.id,
+          numero_parcela: index + 1,
+          valor_parcela: Number(valorParcela.toFixed(2)),
+          data_vencimento: adicionarMeses(baseVencimento, index),
+          status: 'pendente',
+        }))
+
+        const { error: erroParcelas } = await supabase
+          .from('parcelas_honorarios')
+          .insert(parcelasGeradas)
+
+        if (erroParcelas) {
+          setMensagem(
+            'Cliente e honorários salvos, mas houve erro ao gerar parcelas: ' +
+              erroParcelas.message
+          )
+          await carregarClientes(usuario.id)
+          await carregarParcelas(usuario.id)
+          return
+        }
       }
+
+      setMensagem('Cliente cadastrado com sucesso.')
+
+      setNomeCompleto('')
+      setEndereco('')
+      setCpf('')
+      setDataNascimento('')
+      setDescricaoCaso('')
+      setDataAcao('')
+      setDeadline('')
+      setValorCausa('')
+      setTemHonorarios(false)
+      setValorHonorarios('')
+      setHonorariosParcelados(false)
+      setQuantidadeParcelas('')
+
+      await carregarClientes(usuario.id)
+      await carregarParcelas(usuario.id)
+
+      setAbaAtiva('consulta')
+    } catch (error) {
+      console.error(error)
+      setMensagem('Ocorreu um erro inesperado ao salvar o cliente.')
+    } finally {
+      setCarregando(false)
     }
-
-    setMensagem('Cliente cadastrado com sucesso.')
-
-    setNomeCompleto('')
-    setEndereco('')
-    setCpf('')
-    setDataNascimento('')
-    setDescricaoCaso('')
-    setDataAcao('')
-    setDeadline('')
-    setValorCausa('')
-    setTemHonorarios(false)
-    setValorHonorarios('')
-    setHonorariosParcelados(false)
-    setQuantidadeParcelas('')
-
-    await carregarClientes(usuario.id)
-    await carregarParcelas(usuario.id)
-
-    setAbaAtiva('consulta')
-  } catch (error) {
-    console.error(error)
-    setMensagem('Ocorreu um erro inesperado ao salvar o cliente.')
-  } finally {
-    setCarregando(false)
   }
-}
 
   function limparFiltros() {
     setBuscaNome('')
@@ -425,82 +421,82 @@ export default function HomePage() {
     })
   }, [parcelas])
 
-const clientesFiltrados = useMemo(() => {
-  const filtrados = clientes.filter((cliente) => {
-    const nomeOk =
-      !buscaNome ||
-      cliente.nome_completo.toLowerCase().includes(buscaNome.toLowerCase())
+  const clientesFiltrados = useMemo(() => {
+    const filtrados = clientes.filter((cliente) => {
+      const nomeOk =
+        !buscaNome ||
+        cliente.nome_completo.toLowerCase().includes(buscaNome.toLowerCase())
 
-    let deadlineOk = true
-    if (filtroDeadline === 'vencida') {
-      deadlineOk =
-        !!cliente.deadline &&
-        !cliente.deadline_finalizada &&
-        diferencaDias(cliente.deadline) < 0
-    } else if (filtroDeadline === 'proxima') {
-      deadlineOk =
-        !!cliente.deadline &&
-        !cliente.deadline_finalizada &&
-        diferencaDias(cliente.deadline) >= 0 &&
-        diferencaDias(cliente.deadline) <= 7
-    } else if (filtroDeadline === 'finalizada') {
-      deadlineOk = cliente.deadline_finalizada
-    } else if (filtroDeadline === 'sem_deadline') {
-      deadlineOk = !cliente.deadline
-    }
-
-    let dataOk = true
-    if (dataInicial || dataFinal) {
-      const dataBase = cliente.deadline || cliente.data_acao
-      if (!dataBase) {
-        dataOk = false
-      } else {
-        if (dataInicial && dataBase < dataInicial) dataOk = false
-        if (dataFinal && dataBase > dataFinal) dataOk = false
+      let deadlineOk = true
+      if (filtroDeadline === 'vencida') {
+        deadlineOk =
+          !!cliente.deadline &&
+          !cliente.deadline_finalizada &&
+          diferencaDias(cliente.deadline) < 0
+      } else if (filtroDeadline === 'proxima') {
+        deadlineOk =
+          !!cliente.deadline &&
+          !cliente.deadline_finalizada &&
+          diferencaDias(cliente.deadline) >= 0 &&
+          diferencaDias(cliente.deadline) <= 7
+      } else if (filtroDeadline === 'finalizada') {
+        deadlineOk = cliente.deadline_finalizada
+      } else if (filtroDeadline === 'sem_deadline') {
+        deadlineOk = !cliente.deadline
       }
-    }
 
-    let honorariosOk = true
-    if (filtroHonorarios === 'sem_honorarios') {
-      honorariosOk = !cliente.tem_honorarios
-    } else if (filtroHonorarios) {
-      const parcelasDoCliente = parcelas.filter((p) => p.cliente_id === cliente.id)
-
-      if (filtroHonorarios === 'vencido') {
-        honorariosOk = parcelasDoCliente.some(
-          (p) => p.status !== 'pago' && diferencaDias(p.data_vencimento) < 0
-        )
-      } else if (filtroHonorarios === 'proximo') {
-        honorariosOk = parcelasDoCliente.some(
-          (p) =>
-            p.status !== 'pago' &&
-            diferencaDias(p.data_vencimento) >= 0 &&
-            diferencaDias(p.data_vencimento) <= 7
-        )
-      } else if (filtroHonorarios === 'pago') {
-        honorariosOk =
-          parcelasDoCliente.length > 0 &&
-          parcelasDoCliente.every((p) => p.status === 'pago')
+      let dataOk = true
+      if (dataInicial || dataFinal) {
+        const dataBase = cliente.deadline || cliente.data_acao
+        if (!dataBase) {
+          dataOk = false
+        } else {
+          if (dataInicial && dataBase < dataInicial) dataOk = false
+          if (dataFinal && dataBase > dataFinal) dataOk = false
+        }
       }
-    }
 
-    return nomeOk && deadlineOk && dataOk && honorariosOk
-  })
+      let honorariosOk = true
+      if (filtroHonorarios === 'sem_honorarios') {
+        honorariosOk = !cliente.tem_honorarios
+      } else if (filtroHonorarios) {
+        const parcelasDoCliente = parcelas.filter((p) => p.cliente_id === cliente.id)
 
-  return filtrados.sort((a, b) =>
-    a.nome_completo.localeCompare(b.nome_completo, 'pt-BR', {
-      sensitivity: 'base',
+        if (filtroHonorarios === 'vencido') {
+          honorariosOk = parcelasDoCliente.some(
+            (p) => p.status !== 'pago' && diferencaDias(p.data_vencimento) < 0
+          )
+        } else if (filtroHonorarios === 'proximo') {
+          honorariosOk = parcelasDoCliente.some(
+            (p) =>
+              p.status !== 'pago' &&
+              diferencaDias(p.data_vencimento) >= 0 &&
+              diferencaDias(p.data_vencimento) <= 7
+          )
+        } else if (filtroHonorarios === 'pago') {
+          honorariosOk =
+            parcelasDoCliente.length > 0 &&
+            parcelasDoCliente.every((p) => p.status === 'pago')
+        }
+      }
+
+      return nomeOk && deadlineOk && dataOk && honorariosOk
     })
-  )
-}, [
-  clientes,
-  parcelas,
-  buscaNome,
-  filtroDeadline,
-  filtroHonorarios,
-  dataInicial,
-  dataFinal,
-])
+
+    return filtrados.sort((a, b) =>
+      a.nome_completo.localeCompare(b.nome_completo, 'pt-BR', {
+        sensitivity: 'base',
+      })
+    )
+  }, [
+    clientes,
+    parcelas,
+    buscaNome,
+    filtroDeadline,
+    filtroHonorarios,
+    dataInicial,
+    dataFinal,
+  ])
 
   const deadlinesVencidasFiltradas = useMemo(() => {
     const ids = new Set(clientesFiltrados.map((c) => c.id))
@@ -524,50 +520,30 @@ const clientesFiltrados = useMemo(() => {
 
   function renderConteudoAba() {
     if (abaAtiva === 'dashboard') {
-  return (
-  <div className="space-y-6">
-    <FiltrosBusca
-      buscaNome={buscaNome}
-      setBuscaNome={setBuscaNome}
-      filtroDeadline={filtroDeadline}
-      setFiltroDeadline={setFiltroDeadline}
-      filtroHonorarios={filtroHonorarios}
-      setFiltroHonorarios={setFiltroHonorarios}
-      dataInicial={dataInicial}
-      setDataInicial={setDataInicial}
-      dataFinal={dataFinal}
-      setDataFinal={setDataFinal}
-      onLimparFiltros={limparFiltros}
-    />
+      return (
+        <div className="space-y-6">
+          <DashboardCards
+            deadlinesVencidas={deadlinesVencidas.length}
+            deadlinesProximas={deadlinesProximas.length}
+            honorariosVencidos={parcelasVencidas.length}
+            honorariosProximos={parcelasProximas.length}
+          />
 
-    <DashboardCards
-      deadlinesVencidas={deadlinesVencidasFiltradas.length}
-      deadlinesProximas={deadlinesProximasFiltradas.length}
-      honorariosVencidos={parcelasVencidasFiltradas.length}
-      honorariosProximos={parcelasProximasFiltradas.length}
-    />
+          <div className="grid lg:grid-cols-2 gap-6">
+            <DeadlinesAlert
+              deadlinesVencidas={deadlinesVencidas}
+              deadlinesProximas={deadlinesProximas}
+              onFinalizarDeadline={finalizarDeadline}
+            />
 
-    <div className="grid lg:grid-cols-2 gap-6">
-      <DeadlinesAlert
-        deadlinesVencidas={deadlinesVencidasFiltradas}
-        deadlinesProximas={deadlinesProximasFiltradas}
-        onFinalizarDeadline={finalizarDeadline}
-      />
-
-      <HonorariosAlert
-        parcelasVencidas={parcelasVencidasFiltradas}
-        parcelasProximas={parcelasProximasFiltradas}
-        onMarcarComoPaga={marcarParcelaComoPaga}
-      />
-    </div>
-
-    <ClientesList
-      clientes={clientesFiltrados}
-      onFinalizarDeadline={finalizarDeadline}
-      onReabrirDeadline={reabrirDeadline}
-    />
-  </div>
-)
+            <HonorariosAlert
+              parcelasVencidas={parcelasVencidas}
+              parcelasProximas={parcelasProximas}
+              onMarcarComoPaga={marcarParcelaComoPaga}
+            />
+          </div>
+        </div>
+      )
     }
 
     if (abaAtiva === 'cadastro') {
@@ -620,34 +596,32 @@ const clientesFiltrados = useMemo(() => {
           onLimparFiltros={limparFiltros}
         />
 
+        <DashboardCards
+          deadlinesVencidas={deadlinesVencidasFiltradas.length}
+          deadlinesProximas={deadlinesProximasFiltradas.length}
+          honorariosVencidos={parcelasVencidasFiltradas.length}
+          honorariosProximos={parcelasProximasFiltradas.length}
+        />
+
         <div className="grid lg:grid-cols-2 gap-6">
-          <div className="space-y-6">
-            <DashboardCards
-              deadlinesVencidas={deadlinesVencidasFiltradas.length}
-              deadlinesProximas={deadlinesProximasFiltradas.length}
-              honorariosVencidos={parcelasVencidasFiltradas.length}
-              honorariosProximos={parcelasProximasFiltradas.length}
-            />
-
-            <DeadlinesAlert
-              deadlinesVencidas={deadlinesVencidasFiltradas}
-              deadlinesProximas={deadlinesProximasFiltradas}
-              onFinalizarDeadline={finalizarDeadline}
-            />
-
-            <HonorariosAlert
-              parcelasVencidas={parcelasVencidasFiltradas}
-              parcelasProximas={parcelasProximasFiltradas}
-              onMarcarComoPaga={marcarParcelaComoPaga}
-            />
-          </div>
-
-          <ClientesList
-            clientes={clientesFiltrados}
+          <DeadlinesAlert
+            deadlinesVencidas={deadlinesVencidasFiltradas}
+            deadlinesProximas={deadlinesProximasFiltradas}
             onFinalizarDeadline={finalizarDeadline}
-            onReabrirDeadline={reabrirDeadline}
+          />
+
+          <HonorariosAlert
+            parcelasVencidas={parcelasVencidasFiltradas}
+            parcelasProximas={parcelasProximasFiltradas}
+            onMarcarComoPaga={marcarParcelaComoPaga}
           />
         </div>
+
+        <ClientesList
+          clientes={clientesFiltrados}
+          onFinalizarDeadline={finalizarDeadline}
+          onReabrirDeadline={reabrirDeadline}
+        />
       </div>
     )
   }
