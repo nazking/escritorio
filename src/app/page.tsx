@@ -284,7 +284,7 @@ export default function HomePage() {
     setMensagem('Salvando cliente...')
 
     try {
-      const { data: clienteInserido, error: erroCliente } = await comTimeout(
+      const resultadoCliente: any = await comTimeout(
         supabase
           .from('clientes')
           .insert({
@@ -308,6 +308,9 @@ export default function HomePage() {
           .single()
       )
 
+      const clienteInserido = resultadoCliente.data
+      const erroCliente = resultadoCliente.error
+
       if (erroCliente || !clienteInserido) {
         setMensagem('Erro ao salvar cliente: ' + (erroCliente?.message || 'Erro desconhecido'))
         return
@@ -328,7 +331,7 @@ export default function HomePage() {
           return
         }
 
-        const { data: honorarioInserido, error: erroHonorario } = await comTimeout(
+        const resultadoHonorario: any = await comTimeout(
           supabase
             .from('honorarios')
             .insert({
@@ -342,6 +345,9 @@ export default function HomePage() {
             .select()
             .single()
         )
+
+        const honorarioInserido = resultadoHonorario.data
+        const erroHonorario = resultadoHonorario.error
 
         if (erroHonorario || !honorarioInserido) {
           setMensagem(
@@ -366,9 +372,11 @@ export default function HomePage() {
           status: 'pendente',
         }))
 
-        const { error: erroParcelas } = await comTimeout(
+        const resultadoParcelas: any = await comTimeout(
           supabase.from('parcelas_honorarios').insert(parcelasGeradas)
         )
+
+        const erroParcelas = resultadoParcelas.error
 
         if (erroParcelas) {
           setMensagem(
