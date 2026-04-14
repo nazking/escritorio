@@ -1,8 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { useState } from 'react'
 import ExcelJS from 'exceljs'
+import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { formatarMoeda } from '@/lib/utils'
 
@@ -25,6 +25,16 @@ function formatarDataHoraLocal(dataIso: string | null | undefined) {
 function formatarDataLocal(dataIso: string | null | undefined) {
   if (!dataIso) return ''
   return new Date(dataIso + 'T12:00:00').toLocaleDateString('pt-BR')
+}
+
+function extrairNomeCliente(cliente: any) {
+  if (!cliente) return 'Cliente'
+
+  if (Array.isArray(cliente)) {
+    return cliente[0]?.nome_completo || 'Cliente'
+  }
+
+  return cliente.nome_completo || 'Cliente'
 }
 
 export default function RelatoriosPage() {
@@ -118,10 +128,11 @@ export default function RelatoriosPage() {
         .from('parcelas_honorarios')
         .select(`
           id,
+          cliente_id,
           data_vencimento,
           data_pagamento,
           status,
-          cliente:clientes(nome_completo)
+          clientes!inner(nome_completo)
         `)
         .gte('data_vencimento', dataInicialFinanceiro)
         .lte('data_vencimento', dataFinalFinanceiro)
@@ -150,9 +161,10 @@ export default function RelatoriosPage() {
 
       ;(data || []).forEach((parcela: any) => {
         const pago = parcela.status === 'pago'
+        const nomeCliente = extrairNomeCliente(parcela.clientes)
 
         const row = worksheet.addRow({
-          nome: parcela.cliente?.[0]?.nome_completo || 'Cliente',
+          nome: nomeCliente,
           vencimento: formatarDataLocal(parcela.data_vencimento),
           pagamento: pago
             ? formatarDataLocal(parcela.data_pagamento)
