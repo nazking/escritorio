@@ -91,7 +91,8 @@ export default function HomePage() {
     await Promise.all([carregarClientes(userId), carregarParcelas(userId)])
   }
 
-  async function carregarClientes(userId: string) {
+ async function carregarClientes(userId: string) {
+  try {
     const { data, error } = await supabase
       .from('clientes')
       .select('*')
@@ -104,9 +105,16 @@ export default function HomePage() {
     }
 
     setClientes(data || [])
+  } catch (error) {
+    console.error(error)
+    setMensagem('Erro inesperado ao carregar clientes.')
+  }
+}
+    setClientes(data || [])
   }
 
-  async function carregarParcelas(userId: string) {
+ async function carregarParcelas(userId: string) {
+  try {
     const { data, error } = await supabase
       .from('parcelas_honorarios')
       .select(`
@@ -126,6 +134,12 @@ export default function HomePage() {
       return
     }
 
+    setParcelas((data ?? []) as Parcela[])
+  } catch (error) {
+    console.error(error)
+    setMensagem('Erro inesperado ao carregar parcelas.')
+  }
+}
     setParcelas((data ?? []) as Parcela[])
   }
 
@@ -241,117 +255,132 @@ export default function HomePage() {
   }
 
   async function salvarCliente(e: FormEvent) {
-    e.preventDefault()
+  e.preventDefault()
 
-    if (!usuario) return
+  if (!usuario) {
+    setMensagem('Usuário não identificado.')
+    return
+  }
 
-    setCarregando(true)
-    setMensagem('')
+  setCarregando(true)
+  setMensagem('')
 
-    try {
-      const { data: clienteInserido, error: erroCliente } = await supabase
-        .from('clientes')
+  try {
+    const { data: clienteInserido, error: erroCliente } = await supabase
+      .from('clientes')
+      .insert({
+        user_id: usuario.id,
+        nome_completo: nomeCompleto,
+        endereco: endereco || null,
+        cpf: cpf || null,
+        data_nascimento: dataNascimento || null,
+        descricao_caso: descricaoCaso || null,
+        data_acao: dataAcao || null,
+        deadline: deadline || null,
+        deadline_finalizada: false,
+        valor_causa: valorCausa ? Number(valorCausa) : 0,
+        tem_honorarios: temHonorarios,
+      })
+      .select()
+      .single()
+
+    if (erroCliente || !clienteInserido) {
+      setMensagem('Erro ao salvar cliente: ' + (erroCliente?.message || 'Erro desconhecido'))
+      return
+    }
+
+    if (temHonorarios) {
+      const totalHonorarios = Number(valorHonorarios || 0)
+      const ehParcelado = honorariosParcelados
+      const qtdParcelas = ehParcelado ? Number(quantidadeParcelas || 0) : 1
+
+      if (!totalHonorarios || totalHonorarios <= 0) {
+        setMensagem('Informe um valor válido para os honorários.')
+        return
+      }
+
+      if (!qtdParcelas || qtdParcelas <= 0) {
+        setMensagem('Informe uma quantidade válida de parcelas.')
+        return
+      }
+
+      const { data: honorarioInserido, error: erroHonorario } = await supabase
+        .from('honorarios')
         .insert({
           user_id: usuario.id,
-          nome_completo: nomeCompleto,
-          endereco: endereco || null,
-          cpf: cpf || null,
-          data_nascimento: dataNascimento || null,
-          descricao_caso: descricaoCaso || null,
-          data_acao: dataAcao || null,
-          deadline: deadline || null,
-          deadline_finalizada: false,
-          valor_causa: valorCausa ? Number(valorCausa) : 0,
-          tem_honorarios: temHonorarios,
+          cliente_id: clienteInserido.id,
+          tem_honorarios: true,
+          valor_honorarios: totalHonorarios,
+          parcelado: ehParcelado,
+          quantidade_parcelas: qtdParcelas,
         })
         .select()
         .single()
 
-      if (erroCliente || !clienteInserido) {
-        setMensagem('Erro ao salvar cliente: ' + (erroCliente?.message || 'Erro desconhecido'))
+      if (erroHonorario || !honorarioInserido) {
+        setMensagem(
+          'Cliente salvo, mas houve erro ao salvar honorários: ' +
+            (erroHonorario?.message || 'Erro desconhecido')
+        )
+        await carregarClientes(usuario.id)
+        await carregarParcelas(usuario.id)
         return
       }
 
-      if (temHonorarios) {
-        const totalHonorarios = Number(valorHonorarios || 0)
-        const ehParcelado = honorariosParcelados
-        const qtdParcelas = ehParcelado ? Number(quantidadeParcelas || 0) : 1
+      const baseVencimento = dataAcao || new Date().toISOString().slice(0, 10)
+      const valorParcela = totalHonorarios / qtdParcelas
 
-        if (qtdParcelas <= 0) {
-          setMensagem('Quantidade de parcelas inválida.')
-          return
-        }
+      const parcelasGeradas = Array.from({ length: qtdParcelas }).map((_, index) => ({
+        user_id: usuario.id,
+        cliente_id: clienteInserido.id,
+        honorario_id: honorarioInserido.id,
+        numero_parcela: index + 1,
+        valor_parcela: Number(valorParcela.toFixed(2)),
+        data_vencimento: adicionarMeses(baseVencimento, index),
+        status: 'pendente',
+      }))
 
-        const { data: honorarioInserido, error: erroHonorario } = await supabase
-          .from('honorarios')
-          .insert({
-            user_id: usuario.id,
-            cliente_id: clienteInserido.id,
-            tem_honorarios: true,
-            valor_honorarios: totalHonorarios,
-            parcelado: ehParcelado,
-            quantidade_parcelas: qtdParcelas,
-          })
-          .select()
-          .single()
+      const { error: erroParcelas } = await supabase
+        .from('parcelas_honorarios')
+        .insert(parcelasGeradas)
 
-        if (erroHonorario || !honorarioInserido) {
-          setMensagem(
-            'Cliente salvo, mas houve erro ao salvar honorários: ' +
-              (erroHonorario?.message || 'Erro desconhecido')
-          )
-          await carregarDados(usuario.id)
-          return
-        }
-
-        const baseVencimento = dataAcao || new Date().toISOString().slice(0, 10)
-        const valorParcela = totalHonorarios / qtdParcelas
-
-        const parcelasGeradas = Array.from({ length: qtdParcelas }).map((_, index) => ({
-          user_id: usuario.id,
-          cliente_id: clienteInserido.id,
-          honorario_id: honorarioInserido.id,
-          numero_parcela: index + 1,
-          valor_parcela: Number(valorParcela.toFixed(2)),
-          data_vencimento: adicionarMeses(baseVencimento, index),
-          status: 'pendente',
-        }))
-
-        const { error: erroParcelas } = await supabase
-          .from('parcelas_honorarios')
-          .insert(parcelasGeradas)
-
-        if (erroParcelas) {
-          setMensagem(
-            'Cliente e honorários salvos, mas houve erro ao gerar parcelas: ' +
-              erroParcelas.message
-          )
-          await carregarDados(usuario.id)
-          return
-        }
+      if (erroParcelas) {
+        setMensagem(
+          'Cliente e honorários salvos, mas houve erro ao gerar parcelas: ' +
+            erroParcelas.message
+        )
+        await carregarClientes(usuario.id)
+        await carregarParcelas(usuario.id)
+        return
       }
-
-      setMensagem('Cliente cadastrado com sucesso.')
-
-      setNomeCompleto('')
-      setEndereco('')
-      setCpf('')
-      setDataNascimento('')
-      setDescricaoCaso('')
-      setDataAcao('')
-      setDeadline('')
-      setValorCausa('')
-      setTemHonorarios(false)
-      setValorHonorarios('')
-      setHonorariosParcelados(false)
-      setQuantidadeParcelas('')
-
-      await carregarDados(usuario.id)
-      setAbaAtiva('consulta')
-    } finally {
-      setCarregando(false)
     }
+
+    setMensagem('Cliente cadastrado com sucesso.')
+
+    setNomeCompleto('')
+    setEndereco('')
+    setCpf('')
+    setDataNascimento('')
+    setDescricaoCaso('')
+    setDataAcao('')
+    setDeadline('')
+    setValorCausa('')
+    setTemHonorarios(false)
+    setValorHonorarios('')
+    setHonorariosParcelados(false)
+    setQuantidadeParcelas('')
+
+    await carregarClientes(usuario.id)
+    await carregarParcelas(usuario.id)
+
+    setAbaAtiva('consulta')
+  } catch (error) {
+    console.error(error)
+    setMensagem('Ocorreu um erro inesperado ao salvar o cliente.')
+  } finally {
+    setCarregando(false)
   }
+}
 
   function limparFiltros() {
     setBuscaNome('')
