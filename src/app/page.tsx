@@ -13,6 +13,15 @@ import FiltrosBusca from '@/components/FiltrosBusca'
 
 type AbaAtiva = 'dashboard' | 'cadastro' | 'consulta'
 
+function comTimeout<T>(promise: Promise<T>, ms = 15000): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error('Tempo limite excedido ao salvar.')), ms)
+    ),
+  ])
+}
+
 export default function HomePage() {
   const [abaAtiva, setAbaAtiva] = useState<AbaAtiva>('dashboard')
 
@@ -263,30 +272,32 @@ export default function HomePage() {
     }
 
     setCarregando(true)
-    setMensagem('')
+    setMensagem('Salvando cliente...')
 
     try {
-      const { data: clienteInserido, error: erroCliente } = await supabase
-        .from('clientes')
-        .insert({
-          user_id: usuario.id,
-          nome_completo: nomeCompleto,
-          endereco: endereco || null,
-          bairro: bairro || null,
-          cidade: cidade || null,
-          numero_casa: numeroCasa || null,
-          complemento: complemento || null,
-          cpf: cpf || null,
-          data_nascimento: dataNascimento || null,
-          descricao_caso: descricaoCaso || null,
-          data_acao: dataAcao || null,
-          deadline: deadline || null,
-          deadline_finalizada: false,
-          valor_causa: valorCausa ? moedaInputParaNumero(valorCausa) : 0,
-          tem_honorarios: temHonorarios,
-        })
-        .select()
-        .single()
+      const { data: clienteInserido, error: erroCliente } = await comTimeout(
+        supabase
+          .from('clientes')
+          .insert({
+            user_id: usuario.id,
+            nome_completo: nomeCompleto,
+            endereco: endereco || null,
+            bairro: bairro || null,
+            cidade: cidade || null,
+            numero_casa: numeroCasa || null,
+            complemento: complemento || null,
+            cpf: cpf || null,
+            data_nascimento: dataNascimento || null,
+            descricao_caso: descricaoCaso || null,
+            data_acao: dataAcao || null,
+            deadline: deadline || null,
+            deadline_finalizada: false,
+            valor_causa: valorCausa ? moedaInputParaNumero(valorCausa) : 0,
+            tem_honorarios: temHonorarios,
+          })
+          .select()
+          .single()
+      )
 
       if (erroCliente || !clienteInserido) {
         setMensagem('Erro ao salvar cliente: ' + (erroCliente?.message || 'Erro desconhecido'))
@@ -308,18 +319,20 @@ export default function HomePage() {
           return
         }
 
-        const { data: honorarioInserido, error: erroHonorario } = await supabase
-          .from('honorarios')
-          .insert({
-            user_id: usuario.id,
-            cliente_id: clienteInserido.id,
-            tem_honorarios: true,
-            valor_honorarios: totalHonorarios,
-            parcelado: ehParcelado,
-            quantidade_parcelas: qtdParcelas,
-          })
-          .select()
-          .single()
+        const { data: honorarioInserido, error: erroHonorario } = await comTimeout(
+          supabase
+            .from('honorarios')
+            .insert({
+              user_id: usuario.id,
+              cliente_id: clienteInserido.id,
+              tem_honorarios: true,
+              valor_honorarios: totalHonorarios,
+              parcelado: ehParcelado,
+              quantidade_parcelas: qtdParcelas,
+            })
+            .select()
+            .single()
+        )
 
         if (erroHonorario || !honorarioInserido) {
           setMensagem(
@@ -344,9 +357,9 @@ export default function HomePage() {
           status: 'pendente',
         }))
 
-        const { error: erroParcelas } = await supabase
-          .from('parcelas_honorarios')
-          .insert(parcelasGeradas)
+        const { error: erroParcelas } = await comTimeout(
+          supabase.from('parcelas_honorarios').insert(parcelasGeradas)
+        )
 
         if (erroParcelas) {
           setMensagem(
@@ -384,7 +397,11 @@ export default function HomePage() {
       setAbaAtiva('consulta')
     } catch (error) {
       console.error(error)
-      setMensagem('Ocorreu um erro inesperado ao salvar o cliente.')
+      setMensagem(
+        error instanceof Error
+          ? error.message
+          : 'Ocorreu um erro inesperado ao salvar o cliente.'
+      )
     } finally {
       setCarregando(false)
     }
