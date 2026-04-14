@@ -1,85 +1,55 @@
-import Link from 'next/link'
 import { Cliente } from '@/types'
-import { formatarData, formatarMoeda } from '@/lib/utils'
+import { formatarData } from '@/lib/utils'
 
 type Props = {
-  clientes: Cliente[]
-  onFinalizarDeadline: (clienteId: string) => void
-  onReabrirDeadline: (clienteId: string) => void
+  deadlinesVencidas: Cliente[]
+  deadlinesProximas: Cliente[]
+  onFinalizarDeadline: (clienteId: string) => void | Promise<void>
 }
 
-export default function ClientesList({
-  clientes,
+export default function DeadlinesAlert({
+  deadlinesVencidas,
+  deadlinesProximas,
   onFinalizarDeadline,
-  onReabrirDeadline,
 }: Props) {
   return (
     <div className="bg-white rounded-2xl shadow-lg p-6">
-      <h2 className="text-2xl font-bold mb-4">Clientes cadastrados</h2>
+      <h2 className="text-2xl font-bold mb-4">Prazos da ação em alerta</h2>
 
-      <div className="space-y-4">
-        {clientes.length === 0 && (
-          <p className="text-gray-500">Nenhum cliente encontrado.</p>
+      <div className="space-y-3 max-h-[250px] overflow-auto">
+        {deadlinesVencidas.length === 0 && deadlinesProximas.length === 0 && (
+          <p className="text-gray-500">Nenhum prazo da ação em alerta.</p>
         )}
 
-        {clientes.map((cliente) => (
-          <div
-            key={cliente.id}
-            className="border rounded-xl p-4 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4 w-full"
-          >
-            <div className="grid md:grid-cols-2 xl:grid-cols-5 gap-4 w-full">
-              <div>
-                <p className="text-xs uppercase text-gray-500">ID</p>
-                <p className="font-semibold">{cliente.public_id}</p>
-              </div>
+        {deadlinesVencidas.map((cliente) => (
+          <div key={cliente.id} className="border border-red-300 bg-red-50 rounded-xl p-4">
+            <p className="font-semibold text-red-900">{cliente.nome_completo}</p>
+            <p className="text-sm text-red-800">
+              Prazo da ação vencido em {formatarData(cliente.deadline)}
+            </p>
+            <button
+              type="button"
+              onClick={() => onFinalizarDeadline(cliente.id)}
+              className="mt-3 bg-red-900 text-white px-3 py-2 rounded-lg text-sm"
+            >
+              Finalizar prazo
+            </button>
+          </div>
+        ))}
 
-              <div>
-                <p className="text-xs uppercase text-gray-500">Nome</p>
-                <p className="font-semibold">{cliente.nome_completo}</p>
-              </div>
-
-              <div>
-                <p className="text-xs uppercase text-gray-500">Prazo da ação</p>
-                <p>{formatarData(cliente.deadline)}</p>
-              </div>
-
-              <div>
-                <p className="text-xs uppercase text-gray-500">Valor da causa</p>
-                <p>{formatarMoeda(cliente.valor_causa)}</p>
-              </div>
-
-              <div>
-                <p className="text-xs uppercase text-gray-500">Status do prazo</p>
-                <p>{cliente.deadline_finalizada ? 'Finalizado' : 'Em aberto'}</p>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              {cliente.deadline_finalizada ? (
-                <button
-                  type="button"
-                  onClick={() => onReabrirDeadline(cliente.id)}
-                  className="bg-yellow-600 text-white px-4 py-2 rounded-lg"
-                >
-                  Reabrir prazo
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => onFinalizarDeadline(cliente.id)}
-                  className="bg-green-700 text-white px-4 py-2 rounded-lg"
-                >
-                  Finalizar prazo
-                </button>
-              )}
-
-              <Link
-                href={`/clientes/${cliente.id}`}
-                className="bg-black text-white px-4 py-2 rounded-lg"
-              >
-                Ver
-              </Link>
-            </div>
+        {deadlinesProximas.map((cliente) => (
+          <div key={cliente.id} className="border border-yellow-300 bg-yellow-50 rounded-xl p-4">
+            <p className="font-semibold text-yellow-900">{cliente.nome_completo}</p>
+            <p className="text-sm text-yellow-800">
+              Prazo da ação próximo em {formatarData(cliente.deadline)}
+            </p>
+            <button
+              type="button"
+              onClick={() => onFinalizarDeadline(cliente.id)}
+              className="mt-3 bg-yellow-700 text-white px-3 py-2 rounded-lg text-sm"
+            >
+              Finalizar prazo
+            </button>
           </div>
         ))}
       </div>
