@@ -13,13 +13,13 @@ import FiltrosBusca from '@/components/FiltrosBusca'
 
 type AbaAtiva = 'dashboard' | 'cadastro' | 'consulta'
 
-function comTimeout<T>(promise: Promise<T>, ms = 15000): Promise<T> {
+function comTimeout<T>(promiseLike: PromiseLike<T>, ms = 15000): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => {
       reject(new Error('Tempo limite excedido ao salvar.'))
     }, ms)
 
-    promise
+    Promise.resolve(promiseLike)
       .then((resultado) => {
         clearTimeout(timer)
         resolve(resultado)
