@@ -1,3 +1,5 @@
+import { formatarCpf, formatarMoedaInput } from '@/lib/utils'
+
 type Props = {
   carregando: boolean
   mensagem: string
@@ -7,6 +9,18 @@ type Props = {
 
   endereco: string
   setEndereco: (valor: string) => void
+
+  bairro: string
+  setBairro: (valor: string) => void
+
+  cidade: string
+  setCidade: (valor: string) => void
+
+  numeroCasa: string
+  setNumeroCasa: (valor: string) => void
+
+  complemento: string
+  setComplemento: (valor: string) => void
 
   cpf: string
   setCpf: (valor: string) => void
@@ -48,6 +62,14 @@ export default function ClienteForm({
   setNomeCompleto,
   endereco,
   setEndereco,
+  bairro,
+  setBairro,
+  cidade,
+  setCidade,
+  numeroCasa,
+  setNumeroCasa,
+  complemento,
+  setComplemento,
   cpf,
   setCpf,
   dataNascimento,
@@ -96,13 +118,58 @@ export default function ClienteForm({
           />
         </div>
 
+        <div className="grid md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">Bairro</label>
+            <input
+              type="text"
+              value={bairro}
+              onChange={(e) => setBairro(e.target.value)}
+              className="w-full border rounded-lg px-3 py-2"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">Cidade</label>
+            <input
+              type="text"
+              value={cidade}
+              onChange={(e) => setCidade(e.target.value)}
+              className="w-full border rounded-lg px-3 py-2"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">Número da casa</label>
+            <input
+              type="text"
+              value={numeroCasa}
+              onChange={(e) => setNumeroCasa(e.target.value)}
+              className="w-full border rounded-lg px-3 py-2"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">Complemento</label>
+            <input
+              type="text"
+              value={complemento}
+              onChange={(e) => setComplemento(e.target.value)}
+              className="w-full border rounded-lg px-3 py-2"
+              placeholder="Opcional"
+            />
+          </div>
+        </div>
+
         <div>
           <label className="block text-sm font-medium mb-1">CPF</label>
           <input
             type="text"
             value={cpf}
-            onChange={(e) => setCpf(e.target.value)}
+            onChange={(e) => setCpf(formatarCpf(e.target.value))}
             className="w-full border rounded-lg px-3 py-2"
+            maxLength={14}
+            placeholder="000.000.000-00"
           />
         </div>
 
@@ -148,11 +215,11 @@ export default function ClienteForm({
         <div>
           <label className="block text-sm font-medium mb-1">Valor da causa</label>
           <input
-            type="number"
-            step="0.01"
+            type="text"
             value={valorCausa}
-            onChange={(e) => setValorCausa(e.target.value)}
+            onChange={(e) => setValorCausa(formatarMoedaInput(e.target.value))}
             className="w-full border rounded-lg px-3 py-2"
+            placeholder="R$ 0,00"
           />
         </div>
 
@@ -180,11 +247,11 @@ export default function ClienteForm({
             <div>
               <label className="block text-sm font-medium mb-1">Valor dos honorários</label>
               <input
-                type="number"
-                step="0.01"
+                type="text"
                 value={valorHonorarios}
-                onChange={(e) => setValorHonorarios(e.target.value)}
+                onChange={(e) => setValorHonorarios(formatarMoedaInput(e.target.value))}
                 className="w-full border rounded-lg px-3 py-2"
+                placeholder="R$ 0,00"
                 required={temHonorarios}
               />
             </div>

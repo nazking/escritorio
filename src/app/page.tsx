@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { adicionarMeses, diferencaDias } from '@/lib/utils'
+import { adicionarMeses, diferencaDias, moedaInputParaNumero } from '@/lib/utils'
 import { Cliente, Parcela, Usuario } from '@/types'
 import DashboardCards from '@/components/DashboardCards'
 import ClientesList from '@/components/ClientesList'
@@ -26,6 +26,10 @@ export default function HomePage() {
 
   const [nomeCompleto, setNomeCompleto] = useState('')
   const [endereco, setEndereco] = useState('')
+  const [bairro, setBairro] = useState('')
+  const [cidade, setCidade] = useState('')
+  const [numeroCasa, setNumeroCasa] = useState('')
+  const [complemento, setComplemento] = useState('')
   const [cpf, setCpf] = useState('')
   const [dataNascimento, setDataNascimento] = useState('')
   const [descricaoCaso, setDescricaoCaso] = useState('')
@@ -268,13 +272,17 @@ export default function HomePage() {
           user_id: usuario.id,
           nome_completo: nomeCompleto,
           endereco: endereco || null,
+          bairro: bairro || null,
+          cidade: cidade || null,
+          numero_casa: numeroCasa || null,
+          complemento: complemento || null,
           cpf: cpf || null,
           data_nascimento: dataNascimento || null,
           descricao_caso: descricaoCaso || null,
           data_acao: dataAcao || null,
           deadline: deadline || null,
           deadline_finalizada: false,
-          valor_causa: valorCausa ? Number(valorCausa) : 0,
+          valor_causa: valorCausa ? moedaInputParaNumero(valorCausa) : 0,
           tem_honorarios: temHonorarios,
         })
         .select()
@@ -286,7 +294,7 @@ export default function HomePage() {
       }
 
       if (temHonorarios) {
-        const totalHonorarios = Number(valorHonorarios || 0)
+        const totalHonorarios = moedaInputParaNumero(valorHonorarios)
         const ehParcelado = honorariosParcelados
         const qtdParcelas = ehParcelado ? Number(quantidadeParcelas || 0) : 1
 
@@ -355,6 +363,10 @@ export default function HomePage() {
 
       setNomeCompleto('')
       setEndereco('')
+      setBairro('')
+      setCidade('')
+      setNumeroCasa('')
+      setComplemento('')
       setCpf('')
       setDataNascimento('')
       setDescricaoCaso('')
@@ -555,6 +567,14 @@ export default function HomePage() {
           setNomeCompleto={setNomeCompleto}
           endereco={endereco}
           setEndereco={setEndereco}
+          bairro={bairro}
+          setBairro={setBairro}
+          cidade={cidade}
+          setCidade={setCidade}
+          numeroCasa={numeroCasa}
+          setNumeroCasa={setNumeroCasa}
+          complemento={complemento}
+          setComplemento={setComplemento}
           cpf={cpf}
           setCpf={setCpf}
           dataNascimento={dataNascimento}

@@ -27,3 +27,33 @@ export function formatarMoeda(valor: number | null) {
     currency: 'BRL',
   })
 }
+
+export function formatarCpf(valor: string) {
+  const numeros = valor.replace(/\D/g, '').slice(0, 11)
+
+  return numeros
+    .replace(/^(\d{3})(\d)/, '$1.$2')
+    .replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
+    .replace(/\.(\d{3})(\d)/, '.$1-$2')
+}
+
+export function formatarMoedaInput(valor: string) {
+  const numeros = valor.replace(/\D/g, '')
+
+  if (!numeros) return ''
+
+  const numero = Number(numeros) / 100
+
+  return numero.toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  })
+}
+
+export function moedaInputParaNumero(valor: string) {
+  const limpo = valor.replace(/\s/g, '').replace('R$', '').trim()
+  const normalizado = limpo.replace(/\./g, '').replace(',', '.')
+  const numero = Number(normalizado)
+
+  return Number.isNaN(numero) ? 0 : numero
+}

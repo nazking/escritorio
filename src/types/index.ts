@@ -7,6 +7,10 @@ export type Cliente = {
   id: string
   nome_completo: string
   endereco: string | null
+  bairro: string | null
+  cidade: string | null
+  numero_casa: string | null
+  complemento: string | null
   cpf: string | null
   data_nascimento: string | null
   descricao_caso: string | null
